@@ -70,6 +70,18 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
                         String subcategory,
                         String rawMaterial);
 
+        /**
+         * 본사 ID 기반 중복 데이터 조회 (수정용 - 특정 ID 제외)
+         */
+        List<Scope3Emission> findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+                        Long headquartersId,
+                        Integer reportingYear,
+                        Integer reportingMonth,
+                        Integer categoryNumber,
+                        String majorCategory,
+                        String subcategory,
+                        String rawMaterial);
+
         // ========================================================================
         // 협력사용 쿼리 메서드 (Partner Query Methods)
         // ========================================================================
@@ -107,6 +119,18 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
          * 협력사 ID 기반 중복 데이터 검사
          */
         boolean existsByPartnerIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+                        Long partnerId,
+                        Integer reportingYear,
+                        Integer reportingMonth,
+                        Integer categoryNumber,
+                        String majorCategory,
+                        String subcategory,
+                        String rawMaterial);
+
+        /**
+         * 협력사 ID 기반 중복 데이터 조회 (수정용 - 특정 ID 제외)
+         */
+        List<Scope3Emission> findByPartnerIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
                         Long partnerId,
                         Integer reportingYear,
                         Integer reportingMonth,

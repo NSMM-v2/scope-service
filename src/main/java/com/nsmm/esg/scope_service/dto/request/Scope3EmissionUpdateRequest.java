@@ -113,4 +113,14 @@ public class Scope3EmissionUpdateRequest {
   public boolean needsEmissionCalculation() {
     return totalEmission == null && (activityAmount != null || emissionFactor != null);
   }
+
+  /**
+   * 중복 검증이 필요한 핵심 필드가 변경되었는지 확인
+   * 
+   * @return 핵심 필드가 변경되었으면 true
+   */
+  public boolean hasKeyFields() {
+    return reportingYear != null || reportingMonth != null || categoryNumber != null ||
+        majorCategory != null || subcategory != null || rawMaterial != null;
+  }
 }

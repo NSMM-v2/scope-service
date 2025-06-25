@@ -67,6 +67,10 @@ public class Scope3EmissionRequest {
   @Digits(integer = 15, fraction = 6, message = "계산된 배출량은 정수 15자리, 소수점 6자리까지 가능합니다")
   private BigDecimal totalEmission; // 계산된 배출량 (프론트 totalEmission)
 
+  @Schema(description = "수동 입력 여부", example = "true")
+  @Builder.Default
+  private Boolean isManualInput = false; // 수동 입력 여부 (true: 수동, false: 자동)
+
   @Schema(description = "보고 연도", example = "2024")
   @NotNull(message = "보고 연도는 필수입니다")
   private Integer reportingYear; // 보고 연도

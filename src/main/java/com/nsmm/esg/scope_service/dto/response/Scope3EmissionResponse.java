@@ -53,6 +53,9 @@ public class Scope3EmissionResponse {
   @Schema(description = "계산된 배출량", example = "2100.0")
   private BigDecimal totalEmission; // 계산된 배출량
 
+  @Schema(description = "수동 입력 여부", example = "true")
+  private Boolean isManualInput; // 수동 입력 여부 (true: 수동, false: 자동)
+
   @Schema(description = "보고 연도", example = "2024")
   private Integer reportingYear; // 보고 연도
 
@@ -87,6 +90,7 @@ public class Scope3EmissionResponse {
         .emissionFactor(entity.getEmissionFactor())
         .activityAmount(entity.getActivityAmount())
         .totalEmission(entity.getTotalEmission())
+        .isManualInput(entity.getIsManualInput()) // 수동 입력 여부 추가
         .reportingYear(entity.getReportingYear())
         .reportingMonth(entity.getReportingMonth())
         .categoryNumber(entity.getCategoryNumber())

@@ -62,64 +62,119 @@ public class Scope3EmissionService {
       String treePath) {
 
     log.info("Scope 3 배출량 데이터 생성 시작: userType={}, categoryNumber={}", userType, request.getCategoryNumber());
+    log.debug("수신된 요청 데이터: {}", request);
+    log.debug("헤더 정보: userType={}, headquartersId={}, partnerId={}, treePath={}",
+        userType, headquartersId, partnerId, treePath);
 
-    // 1. 권한 검증
-    if (userType == null) {
-      throw new IllegalArgumentException("사용자 유형이 필요합니다");
+    // 0. 요청 데이터 상세 검증 로그
+    log.debug("요청 데이터 상세 검증:");
+    log.debug("  - majorCategory: '{}' (length: {})", request.getMajorCategory(),
+        request.getMajorCategory() != null ? request.getMajorCategory().length() : "null");
+    log.debug("  - subcategory: '{}' (length: {})", request.getSubcategory(),
+        request.getSubcategory() != null ? request.getSubcategory().length() : "null");
+    log.debug("  - rawMaterial: '{}' (length: {})", request.getRawMaterial(),
+        request.getRawMaterial() != null ? request.getRawMaterial().length() : "null");
+    log.debug("  - unit: '{}' (length: {})", request.getUnit(),
+        request.getUnit() != null ? request.getUnit().length() : "null");
+    log.debug("  - activityAmount: {}", request.getActivityAmount());
+    log.debug("  - emissionFactor: {}", request.getEmissionFactor());
+    log.debug("  - totalEmission: {}", request.getTotalEmission());
+    log.debug("  - reportingYear: {}", request.getReportingYear());
+    log.debug("  - reportingMonth: {}", request.getReportingMonth());
+    log.debug("  - categoryNumber: {}", request.getCategoryNumber());
+
+    try {
+      // 1. 권한 검증
+      if (userType == null) {
+        log.error("권한 검증 실패: 사용자 유형이 null");
+        throw new IllegalArgumentException("사용자 유형이 필요합니다");
+      }
+
+      // 2. 본사/협력사 구분에 따른 처리
+      Long finalHeadquartersId;
+      Long finalPartnerId = null;
+
+      if ("HEADQUARTERS".equals(userType)) {
+        if (headquartersId == null) {
+          log.error("본사 권한 검증 실패: headquartersId가 null");
+          throw new IllegalArgumentException("본사 ID가 필요합니다");
+        }
+        try {
+          finalHeadquartersId = Long.parseLong(headquartersId);
+          log.debug("본사 사용자 인증 완료: headquartersId={}", finalHeadquartersId);
+        } catch (NumberFormatException e) {
+          log.error("본사 ID 파싱 오류: headquartersId='{}'", headquartersId, e);
+          throw new IllegalArgumentException("올바르지 않은 본사 ID 형식입니다: " + headquartersId);
+        }
+      } else if ("PARTNER".equals(userType)) {
+        if (partnerId == null) {
+          log.error("협력사 권한 검증 실패: partnerId가 null");
+          throw new IllegalArgumentException("협력사 ID가 필요합니다");
+        }
+        if (treePath == null) {
+          log.error("협력사 권한 검증 실패: treePath가 null");
+          throw new IllegalArgumentException("협력사는 TreePath가 필요합니다");
+        }
+        try {
+          finalHeadquartersId = Long.parseLong(headquartersId);
+          finalPartnerId = Long.parseLong(partnerId);
+          log.debug("협력사 사용자 인증 완료: headquartersId={}, partnerId={}, treePath='{}'",
+              finalHeadquartersId, finalPartnerId, treePath);
+        } catch (NumberFormatException e) {
+          log.error("협력사 ID 파싱 오류: headquartersId='{}', partnerId='{}'", headquartersId, partnerId, e);
+          throw new IllegalArgumentException("올바르지 않은 ID 형식입니다");
+        }
+      } else {
+        log.error("알 수 없는 사용자 유형: userType='{}'", userType);
+        throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
+      }
+
+      // 3. 중복 데이터 검증
+      log.debug("중복 데이터 검증 시작");
+      validateDuplicateData(request, userType, finalHeadquartersId, finalPartnerId);
+      log.debug("중복 데이터 검증 완료");
+
+      // 4. 카테고리 정보 조회
+      log.debug("카테고리 정보 조회 시작: categoryNumber={}", request.getCategoryNumber());
+      Scope3Category category = Scope3Category.fromCategoryNumber(request.getCategoryNumber());
+      log.debug("카테고리 정보 조회 완료: categoryName='{}'", category.getCategoryName());
+
+      // 5. 엔티티 생성
+      log.debug("엔티티 생성 시작");
+      Scope3Emission emission = Scope3Emission.builder()
+          .headquartersId(finalHeadquartersId)
+          .partnerId(finalPartnerId)
+          .treePath(treePath)
+          .reportingYear(request.getReportingYear())
+          .reportingMonth(request.getReportingMonth())
+          .categoryNumber(category.getCategoryNumber())
+          .categoryName(category.getCategoryName())
+          .majorCategory(request.getMajorCategory())
+          .subcategory(request.getSubcategory())
+          .rawMaterial(request.getRawMaterial())
+          .activityAmount(request.getActivityAmount())
+          .unit(request.getUnit())
+          .emissionFactor(request.getEmissionFactor())
+          .totalEmission(request.getTotalEmission())
+          .isManualInput(request.getIsManualInput() != null ? request.getIsManualInput() : false) // 수동 입력 여부 설정
+          .build();
+      log.debug("엔티티 생성 완료");
+
+      // 6. 저장 및 응답
+      log.debug("데이터베이스 저장 시작");
+      Scope3Emission savedEmission = scope3EmissionRepository.save(emission);
+      log.info("Scope 3 배출량 데이터 생성 완료: id={}, totalEmission={}",
+          savedEmission.getId(), savedEmission.getTotalEmission());
+
+      return Scope3EmissionResponse.from(savedEmission);
+
+    } catch (Exception e) {
+      log.error("Scope 3 배출량 데이터 생성 중 오류 발생", e);
+      log.error("오류 발생 시점의 요청 데이터: {}", request);
+      log.error("오류 발생 시점의 헤더 정보: userType={}, headquartersId={}, partnerId={}, treePath={}",
+          userType, headquartersId, partnerId, treePath);
+      throw e; // 원본 예외를 다시 던짐
     }
-
-    // 2. 본사/협력사 구분에 따른 처리
-    Long finalHeadquartersId;
-    Long finalPartnerId = null;
-
-    if ("HEADQUARTERS".equals(userType)) {
-      if (headquartersId == null) {
-        throw new IllegalArgumentException("본사 ID가 필요합니다");
-      }
-      finalHeadquartersId = Long.parseLong(headquartersId);
-    } else if ("PARTNER".equals(userType)) {
-      if (partnerId == null) {
-        throw new IllegalArgumentException("협력사 ID가 필요합니다");
-      }
-      if (treePath == null) {
-        throw new IllegalArgumentException("협력사는 TreePath가 필요합니다");
-      }
-      finalHeadquartersId = Long.parseLong(headquartersId);
-      finalPartnerId = Long.parseLong(partnerId);
-    } else {
-      throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
-    }
-
-    // 3. 중복 데이터 검증
-    validateDuplicateData(request, userType, finalHeadquartersId, finalPartnerId);
-
-    // 4. 카테고리 정보 조회
-    Scope3Category category = Scope3Category.fromCategoryNumber(request.getCategoryNumber());
-
-    // 5. 엔티티 생성
-    Scope3Emission emission = Scope3Emission.builder()
-        .headquartersId(finalHeadquartersId)
-        .partnerId(finalPartnerId)
-        .treePath(treePath)
-        .reportingYear(request.getReportingYear())
-        .reportingMonth(request.getReportingMonth())
-        .categoryNumber(category.getCategoryNumber())
-        .categoryName(category.getCategoryName())
-        .majorCategory(request.getMajorCategory())
-        .subcategory(request.getSubcategory())
-        .rawMaterial(request.getRawMaterial())
-        .activityAmount(request.getActivityAmount())
-        .unit(request.getUnit())
-        .emissionFactor(request.getEmissionFactor())
-        .totalEmission(request.getTotalEmission())
-        .build();
-
-    // 6. 저장 및 응답
-    Scope3Emission savedEmission = scope3EmissionRepository.save(emission);
-    log.info("Scope 3 배출량 데이터 생성 완료: id={}, totalEmission={}",
-        savedEmission.getId(), savedEmission.getTotalEmission());
-
-    return Scope3EmissionResponse.from(savedEmission);
   }
 
   // ========================================================================
@@ -531,7 +586,20 @@ public class Scope3EmissionService {
       throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
     }
 
-    // 4. 부분 업데이트 로직 - null이 아닌 필드만 업데이트
+    // 4. 중복 데이터 검증 (수정용 - 자기 자신 제외)
+    if (request.hasKeyFields()) {
+      // 중복 검증이 필요한 핵심 필드들이 변경된 경우
+      log.debug("중복 데이터 검증 시작 (수정용)");
+      Scope3EmissionRequest tempRequest = createValidationRequest(request, existingEmission);
+
+      Long finalHeadquartersId = existingEmission.getHeadquartersId();
+      Long finalPartnerId = existingEmission.getPartnerId();
+
+      validateDuplicateData(tempRequest, userType, finalHeadquartersId, finalPartnerId, id);
+      log.debug("중복 데이터 검증 완료 (수정용)");
+    }
+
+    // 5. 부분 업데이트 로직 - null이 아닌 필드만 업데이트
     Scope3Emission.Scope3EmissionBuilder builder = existingEmission.toBuilder();
 
     // 비즈니스 데이터 필드 업데이트
@@ -568,7 +636,7 @@ public class Scope3EmissionService {
       builder.categoryName(request.getCategoryName());
     }
 
-    // 5. 총 배출량 처리
+    // 6. 총 배출량 처리
     if (request.getTotalEmission() != null) {
       // 프론트엔드에서 계산된 값이 제공된 경우 그대로 사용
       builder.totalEmission(request.getTotalEmission());
@@ -585,7 +653,7 @@ public class Scope3EmissionService {
       log.info("자동 계산 배출량: {} * {} = {}", finalActivityAmount, finalEmissionFactor, calculatedTotalEmission);
     }
 
-    // 6. 저장 및 응답
+    // 7. 저장 및 응답
     Scope3Emission updatedEmission = scope3EmissionRepository.save(builder.build());
     log.info("Scope 3 배출량 데이터 업데이트 완료: id={}, totalEmission={}",
         updatedEmission.getId(), updatedEmission.getTotalEmission());
@@ -685,19 +753,31 @@ public class Scope3EmissionService {
   // ========================================================================
 
   /**
-   * 중복 데이터 검증 (본사/협력사 구분)
+   * 중복 데이터 검증 (본사/협력사 구분) - 신규 생성용
    */
   private void validateDuplicateData(
       Scope3EmissionRequest request,
       String userType,
       Long headquartersId,
       Long partnerId) {
+    validateDuplicateData(request, userType, headquartersId, partnerId, null);
+  }
 
-    boolean exists;
+  /**
+   * 중복 데이터 검증 (본사/협력사 구분) - 수정용 (자기 자신 제외)
+   */
+  private void validateDuplicateData(
+      Scope3EmissionRequest request,
+      String userType,
+      Long headquartersId,
+      Long partnerId,
+      Long excludeId) {
+
+    List<Scope3Emission> existingData;
 
     if ("HEADQUARTERS".equals(userType)) {
-      exists = scope3EmissionRepository
-          .existsByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+      existingData = scope3EmissionRepository
+          .findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
               headquartersId,
               request.getReportingYear(),
               request.getReportingMonth(),
@@ -706,8 +786,8 @@ public class Scope3EmissionService {
               request.getSubcategory(),
               request.getRawMaterial());
     } else {
-      exists = scope3EmissionRepository
-          .existsByPartnerIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+      existingData = scope3EmissionRepository
+          .findByPartnerIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
               partnerId,
               request.getReportingYear(),
               request.getReportingMonth(),
@@ -717,7 +797,14 @@ public class Scope3EmissionService {
               request.getRawMaterial());
     }
 
-    if (exists) {
+    // 수정 시에는 자기 자신을 제외하고 중복 검증
+    if (excludeId != null) {
+      existingData = existingData.stream()
+          .filter(emission -> !emission.getId().equals(excludeId))
+          .collect(Collectors.toList());
+    }
+
+    if (!existingData.isEmpty()) {
       throw new IllegalArgumentException("동일한 조건의 배출량 데이터가 이미 존재합니다");
     }
   }
@@ -725,6 +812,30 @@ public class Scope3EmissionService {
   // ========================================================================
   // 유틸리티 메서드 (Utility Methods)
   // ========================================================================
+
+  /**
+   * 수정 요청을 중복 검증용 요청으로 변환
+   * 기존 데이터 + 변경된 필드를 합쳐서 검증용 요청 생성
+   */
+  private Scope3EmissionRequest createValidationRequest(
+      Scope3EmissionUpdateRequest updateRequest,
+      Scope3Emission existingEmission) {
+
+    return Scope3EmissionRequest.builder()
+        .reportingYear(updateRequest.getReportingYear() != null ? updateRequest.getReportingYear()
+            : existingEmission.getReportingYear())
+        .reportingMonth(updateRequest.getReportingMonth() != null ? updateRequest.getReportingMonth()
+            : existingEmission.getReportingMonth())
+        .categoryNumber(updateRequest.getCategoryNumber() != null ? updateRequest.getCategoryNumber()
+            : existingEmission.getCategoryNumber())
+        .majorCategory(updateRequest.getMajorCategory() != null ? updateRequest.getMajorCategory()
+            : existingEmission.getMajorCategory())
+        .subcategory(
+            updateRequest.getSubcategory() != null ? updateRequest.getSubcategory() : existingEmission.getSubcategory())
+        .rawMaterial(
+            updateRequest.getRawMaterial() != null ? updateRequest.getRawMaterial() : existingEmission.getRawMaterial())
+        .build();
+  }
 
   /**
    * Entity를 Response DTO로 변환

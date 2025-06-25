@@ -63,6 +63,9 @@ public class Scope3Emission {
   @Column(name = "total_emission", nullable = false, precision = 15, scale = 6)
   private BigDecimal totalEmission; // 계산된 배출량 (프론트엔드 totalEmission)
 
+  @Column(name = "is_manual_input", nullable = false)
+  private Boolean isManualInput = false; // 수동 입력 여부 (true: 수동, false: 자동)
+
   // ========================================================================
   // 권한 제어 및 기타 정보 (Authorization & Metadata)
   // ========================================================================
@@ -131,6 +134,7 @@ public class Scope3Emission {
         .unit(this.unit)
         .emissionFactor(this.emissionFactor)
         .totalEmission(newTotalEmission)
+        .isManualInput(this.isManualInput) // 수동 입력 여부 유지
         .createdAt(this.createdAt)
         .build();
   }
@@ -162,6 +166,7 @@ public class Scope3Emission {
         .unit(this.unit)
         .emissionFactor(emissionFactor)
         .totalEmission(newTotalEmission)
+        .isManualInput(this.isManualInput) // 수동 입력 여부 유지
         .createdAt(this.createdAt)
         .build();
   }
