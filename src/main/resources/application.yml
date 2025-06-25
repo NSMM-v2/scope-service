@@ -6,14 +6,15 @@ spring:
 
 server:
   port: 8082
+
 # Swagger/OpenAPI 3 설정
-# springdoc:
-#   api-docs:
-#     path: /api-docs
-#   swagger-ui:
-#     path: /swagger-ui.html
-#     operations-sorter: method
-#     tags-sorter: alpha
-#     try-it-out-enabled: true
-#     filter: true
-#   show-actuator: true
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    filter: true
+  show-actuator: true
