@@ -254,55 +254,5 @@ public class GlobalExceptionHandler {
                         ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
     }
 
-    // ================================================================
-    // 커스텀 예외 처리를 위한 헬퍼 메서드들
-    // ================================================================
 
-    /**
-     * 에러 코드와 메시지로 BadRequest 응답 생성
-     * 
-     * @param errorCode     에러 코드 enum
-     * @param customMessage 커스텀 메시지 (null이면 기본 메시지 사용)
-     * @return ResponseEntity<ApiResponse<Object>>
-     */
-    private ResponseEntity<ApiResponse<Object>> createBadRequestResponse(
-            ErrorCode errorCode, String customMessage) {
-
-        String message = customMessage != null ? customMessage : errorCode.getMessage();
-
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.error(message, errorCode.getCode()));
-    }
-
-    /**
-     * 에러 코드와 메시지로 Forbidden 응답 생성
-     * 
-     * @param errorCode     에러 코드 enum
-     * @param customMessage 커스텀 메시지 (null이면 기본 메시지 사용)
-     * @return ResponseEntity<ApiResponse<Object>>
-     */
-    private ResponseEntity<ApiResponse<Object>> createForbiddenResponse(
-            ErrorCode errorCode, String customMessage) {
-
-        String message = customMessage != null ? customMessage : errorCode.getMessage();
-
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error(message, errorCode.getCode()));
-    }
-
-    /**
-     * 에러 코드와 메시지로 InternalServerError 응답 생성
-     * 
-     * @param errorCode     에러 코드 enum
-     * @param customMessage 커스텀 메시지 (null이면 기본 메시지 사용)
-     * @return ResponseEntity<ApiResponse<Object>>
-     */
-    private ResponseEntity<ApiResponse<Object>> createInternalServerErrorResponse(
-            ErrorCode errorCode, String customMessage) {
-
-        String message = customMessage != null ? customMessage : errorCode.getMessage();
-
-        return ResponseEntity.internalServerError()
-                .body(ApiResponse.error(message, errorCode.getCode()));
-    }
 }

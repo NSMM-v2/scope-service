@@ -837,13 +837,5 @@ public class Scope3EmissionService {
         .build();
   }
 
-  /**
-   * Entity를 Response DTO로 변환
-   * 
-   * @param emission Scope3Emission 엔티티
-   * @return Scope3EmissionResponse DTO
-   */
-  private Scope3EmissionResponse convertToResponse(Scope3Emission emission) {
-    return Scope3EmissionResponse.from(emission);
-  }
+
 }

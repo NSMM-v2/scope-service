@@ -64,6 +64,7 @@ public class Scope3Emission {
   private BigDecimal totalEmission; // 계산된 배출량 (프론트엔드 totalEmission)
 
   @Column(name = "is_manual_input", nullable = false)
+  @Builder.Default
   private Boolean isManualInput = false; // 수동 입력 여부 (true: 수동, false: 자동)
 
   // ========================================================================
