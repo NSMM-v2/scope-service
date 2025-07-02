@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
  * 
  * @author ESG Project Team
  * @version 1.0
- * @since 2024
  */
 @Getter
 @Setter

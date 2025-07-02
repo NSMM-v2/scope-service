@@ -20,7 +20,6 @@ import java.util.List;
  * 
  * @author ESG Project Team
  * @version 1.0
- * @since 2024
  */
 @Repository
 public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, Long> {

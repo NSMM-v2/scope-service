@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
  * 
  * @author ESG Project Team
  * @version 1.0
- * @since 2024
  */
 @ControllerAdvice
 @Slf4j

@@ -11,7 +11,6 @@ package com.nsmm.esg.scope_service.entity;
  * 
  * @author ESG Project Team
  * @version 1.0
- * @since 2024
  */
 public enum Scope3Category {
 

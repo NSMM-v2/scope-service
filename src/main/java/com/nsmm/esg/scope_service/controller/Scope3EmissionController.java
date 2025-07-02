@@ -31,7 +31,6 @@ import java.util.Map;
  * 
  * @author ESG Project Team
  * @version 1.0
- * @since 2024
  */
 @Tag(name = "Scope3Emission", description = "Scope 3 배출량 관리 API")
 @Slf4j

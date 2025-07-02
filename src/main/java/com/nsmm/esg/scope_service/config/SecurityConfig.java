@@ -16,7 +16,6 @@ import org.springframework.security.web.SecurityFilterChain;
  * 
  * @author ESG Project Team
  * @version 1.0
- * @since 2024
  */
 @Configuration
 @EnableWebSecurity

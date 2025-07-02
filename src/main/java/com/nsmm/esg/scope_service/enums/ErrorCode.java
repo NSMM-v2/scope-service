@@ -8,7 +8,6 @@ package com.nsmm.esg.scope_service.enums;
  * 
  * @author ESG Project Team
  * @version 1.0
- * @since 2024
  */
 public enum ErrorCode {
 
