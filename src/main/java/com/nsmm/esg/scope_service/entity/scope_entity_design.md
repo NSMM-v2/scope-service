@@ -31,20 +31,17 @@
 
 ## 2. 엔티티 설계
 
-### 2.1 메인 데이터 테이블 - ScopeEmission 엔티티 (사용자 직접 입력 기반)
+### 2.1 메인 데이터 테이블 - ScopeEmission 엔티티 (제품 코드 매핑 지원)
 
 ```java
 /**
- * 통합 Scope 배출량 엔티티 - 사용자 직접 입력 기반
+ * 통합 Scope 배출량 엔티티 - 제품 코드 매핑 지원
  *
  * 특징:
- * - 사용자가 프론트에서 활동량, 배출계수, 배출량 모두 직접 입력
- * - 배출계수 마스터 테이블 불필요
- * - 단순하고 직관적인 구조
- *
- * @author ESG Project Team
- * @version 1.0
- * @since 2024
+ * - 회사별 제품코드(companyProductCode) 필드 추가
+ * - ProductCodeMapping 엔티티와 연동(참조)
+ * - 보고 연도/월 필수, 생성일/수정일만 감사 필드로 유지
+ * - treePath, companyName, created_by, updated_by 등 불필요한 필드 제거
  */
 @Entity
 @Table(name = "scope_emission")
@@ -54,26 +51,16 @@
 @AllArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 public class ScopeEmission {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ========================================================================
-    // 권한 제어 및 계층 구조
-    // ========================================================================
-
+    // 권한 제어
     @Column(name = "headquarters_id", nullable = false)
     private Long headquartersId;
 
     @Column(name = "partner_id")
     private Long partnerId;
-
-    @Column(name = "tree_path", nullable = false, length = 500)
-    private String treePath;
-
-    @Column(name = "company_name", nullable = false)
-    private String companyName;
 
     @Column(name = "reporting_year", nullable = false)
     private Integer reportingYear;
@@ -81,10 +68,7 @@ public class ScopeEmission {
     @Column(name = "reporting_month", nullable = false)
     private Integer reportingMonth;
 
-    // ========================================================================
     // Scope 분류 및 카테고리
-    // ========================================================================
-
     @Enumerated(EnumType.STRING)
     @Column(name = "scope_type", nullable = false)
     private ScopeType scopeType; // SCOPE1, SCOPE2, SCOPE3
@@ -107,50 +91,136 @@ public class ScopeEmission {
     @Column(name = "scope3_category_name")
     private String scope3CategoryName;
 
-    // ========================================================================
-    // 사용자 직접 입력 데이터 (User Input Data)
-    // ========================================================================
+    // 회사별 제품 코드 (매핑)
+    @Column(name = "company_product_code", length = 50)
+    private String companyProductCode; // 각 회사별 제품 코드 (예: P100, GP100, FE100, W250)
 
+    // 사용자 직접 입력 데이터
     @Column(name = "major_category", nullable = false)
-    private String majorCategory; // 대분류 (사용자 입력)
+    private String majorCategory;
 
     @Column(name = "subcategory", nullable = false)
-    private String subcategory; // 구분 (사용자 입력)
+    private String subcategory;
 
     @Column(name = "raw_material", nullable = false)
-    private String rawMaterial; // 원료/에너지 (사용자 입력)
+    private String rawMaterial;
 
     @Column(name = "activity_amount", nullable = false, precision = 15, scale = 3)
-    private BigDecimal activityAmount; // 활동량 (사용자 입력)
+    private BigDecimal activityAmount;
 
     @Column(name = "unit", nullable = false, length = 20)
-    private String unit; // 단위 (사용자 입력)
+    private String unit;
 
     @Column(name = "emission_factor", nullable = false, precision = 15, scale = 6)
-    private BigDecimal emissionFactor; // 배출계수 (사용자 입력)
+    private BigDecimal emissionFactor;
 
     @Column(name = "total_emission", nullable = false, precision = 15, scale = 6)
-    private BigDecimal totalEmission; // 총 배출량 (프론트에서 계산된 값)
+    private BigDecimal totalEmission;
 
-    // ========================================================================
     // 집계 제어
-    // ========================================================================
-
     @Column(name = "is_direct_input", nullable = false)
     @Builder.Default
-    private Boolean isDirectInput = true; // 사용자 직접 입력 여부
+    private Boolean isDirectInput = true;
 
     @Column(name = "is_aggregated", nullable = false)
     @Builder.Default
-    private Boolean isAggregated = false; // 집계 데이터 여부
+    private Boolean isAggregated = false;
 
     @Column(name = "aggregation_level", nullable = false)
     @Builder.Default
-    private Integer aggregationLevel = 0; // 집계 레벨
+    private Integer aggregationLevel = 0;
 
-    // ========================================================================
-    // 감사 필드
-    // ========================================================================
+    // 감사 필드 (생성일/수정일만)
+    @CreatedDate
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+}
+```
+
+### 2.2 제품 코드 매핑 테이블 - ProductCodeMapping 엔티티
+
+```java
+/**
+ * 제품 코드 매핑 엔티티
+ *
+ * 특징:
+ * - 본사 제품 코드와 각 협력사별 제품 코드 매핑
+ * - 보고 연도/월별로 관리
+ * - 계층 구조(부품/원재료) 및 변환 비율 지원
+ * - 대시보드에서 본사 제품 코드 기준으로 매핑된 협력사 데이터만 집계 가능
+ * - 생성일/수정일만 감사 필드로 유지
+ */
+@Entity
+@Table(name = "product_code_mapping", indexes = {
+        @Index(name = "idx_headquarters_product_year_month", columnList = "headquarters_id, headquarters_product_code, reporting_year, reporting_month"),
+        @Index(name = "idx_company_product_year_month", columnList = "headquarters_id, partner_id, company_product_code, reporting_year, reporting_month"),
+        @Index(name = "idx_mapping_active", columnList = "headquarters_id, is_active, reporting_year, reporting_month"),
+        @Index(name = "idx_parent_mapping", columnList = "parent_mapping_id")
+})
+@Getter
+@Builder(toBuilder = true)
+@NoArgsConstructor
+@AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class ProductCodeMapping {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "headquarters_id", nullable = false)
+    private Long headquartersId;
+
+    @Column(name = "partner_id")
+    private Long partnerId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_type", nullable = false)
+    private OwnerType ownerType; // HEADQUARTERS, PARTNER
+
+    @Column(name = "reporting_year", nullable = false)
+    private Integer reportingYear;
+
+    @Column(name = "reporting_month", nullable = false)
+    private Integer reportingMonth;
+
+    @Column(name = "headquarters_product_code", nullable = false, length = 50)
+    private String headquartersProductCode;
+
+    @Column(name = "company_product_code", nullable = false, length = 50)
+    private String companyProductCode;
+
+    @Column(name = "product_name", nullable = false)
+    private String productName;
+
+    @Column(name = "product_description")
+    private String productDescription;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_mapping_id")
+    private ProductCodeMapping parentMapping;
+
+    @Column(name = "product_hierarchy_path", nullable = false, length = 500)
+    private String productHierarchyPath;
+
+    @Column(name = "hierarchy_level", nullable = false)
+    @Builder.Default
+    private Integer hierarchyLevel = 1;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mapping_type", nullable = false)
+    private MappingType mappingType; // DIRECT, COMPONENT, RAW_MATERIAL
+
+    @Column(name = "conversion_ratio", precision = 10, scale = 6)
+    @Builder.Default
+    private BigDecimal conversionRatio = BigDecimal.ONE;
+
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private Boolean isActive = true;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)
@@ -160,106 +230,34 @@ public class ScopeEmission {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by", nullable = false, length = 36)
-    private String createdBy;
-
-    @Column(name = "updated_by", nullable = false, length = 36)
-    private String updatedBy;
-
-    // ========================================================================
-    // 비즈니스 메서드 (Business Methods)
-    // ========================================================================
-
-    /**
-     * Scope 1 카테고리 설정
-     */
-    public ScopeEmission withScope1Category(Scope1Category category) {
-        return this.toBuilder()
-                .scope1CategoryNumber(category.getCategoryNumber())
-                .scope1CategoryName(category.getCategoryName())
-                .build();
+    public enum OwnerType {
+        HEADQUARTERS, PARTNER
     }
-
-    /**
-     * Scope 2 카테고리 설정
-     */
-    public ScopeEmission withScope2Category(Scope2Category category) {
-        return this.toBuilder()
-                .scope2CategoryNumber(category.getCategoryNumber())
-                .scope2CategoryName(category.getCategoryName())
-                .build();
-    }
-
-    /**
-     * Scope 3 카테고리 설정
-     */
-    public ScopeEmission withScope3Category(Scope3Category category) {
-        return this.toBuilder()
-                .scope3CategoryNumber(category.getCategoryNumber())
-                .scope3CategoryName(category.getCategoryName())
-                .build();
-    }
-
-    /**
-     * 배출량 재계산 (사용자 입력값 기반)
-     */
-    public ScopeEmission recalculateEmission() {
-        BigDecimal newEmission = this.activityAmount.multiply(this.emissionFactor);
-        return this.toBuilder()
-                .totalEmission(newEmission)
-                .build();
-    }
-
-    /**
-     * 집계 데이터 생성
-     */
-    public ScopeEmission createAggregation(List<ScopeEmission> childEmissions, String aggregatedBy) {
-        BigDecimal totalAggregatedEmission = childEmissions.stream()
-                .map(ScopeEmission::getTotalEmission)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        return ScopeEmission.builder()
-                .headquartersId(this.headquartersId)
-                .partnerId(this.partnerId)
-                .treePath(this.treePath)
-                .companyName(this.companyName)
-                .reportingYear(this.reportingYear)
-                .reportingMonth(this.reportingMonth)
-                .scopeType(this.scopeType)
-                .scope1CategoryNumber(this.scope1CategoryNumber)
-                .scope1CategoryName(this.scope1CategoryName)
-                .scope2CategoryNumber(this.scope2CategoryNumber)
-                .scope2CategoryName(this.scope2CategoryName)
-                .scope3CategoryNumber(this.scope3CategoryNumber)
-                .scope3CategoryName(this.scope3CategoryName)
-                .majorCategory(this.majorCategory)
-                .subcategory(this.subcategory)
-                .rawMaterial(this.rawMaterial)
-                .activityAmount(BigDecimal.ZERO) // 집계 데이터는 활동량 없음
-                .unit(this.unit)
-                .emissionFactor(BigDecimal.ZERO) // 집계 데이터는 배출계수 없음
-                .totalEmission(totalAggregatedEmission)
-                .isDirectInput(false)
-                .isAggregated(true)
-                .aggregationLevel(this.aggregationLevel + 1)
-                .createdBy(aggregatedBy)
-                .updatedBy(aggregatedBy)
-                .build();
-    }
-
-    /**
-     * 사용자 입력 데이터 유효성 검증
-     */
-    public boolean isValidUserInput() {
-        return activityAmount != null && activityAmount.compareTo(BigDecimal.ZERO) >= 0 &&
-               emissionFactor != null && emissionFactor.compareTo(BigDecimal.ZERO) >= 0 &&
-               totalEmission != null && totalEmission.compareTo(BigDecimal.ZERO) >= 0 &&
-               majorCategory != null && !majorCategory.trim().isEmpty() &&
-               subcategory != null && !subcategory.trim().isEmpty() &&
-               rawMaterial != null && !rawMaterial.trim().isEmpty() &&
-               unit != null && !unit.trim().isEmpty();
+    public enum MappingType {
+        DIRECT, COMPONENT, RAW_MATERIAL
     }
 }
+```
+
+### 2.3 ScopeEmission와 ProductCodeMapping 연동 및 대시보드 활용 예시
+
+- ScopeEmission의 companyProductCode와 ProductCodeMapping의 companyProductCode, headquartersProductCode를 활용해 본사 기준으로 협력사 데이터를 집계할 수 있음
+- 대시보드에서는 본사 제품 코드(W250 등) 기준으로 ProductCodeMapping에서 활성 매핑만 조회하여, 해당 매핑에 연결된 ScopeEmission 데이터만 집계
+
+```java
+// 대시보드 집계 예시 (2024년 12월, 본사 제품코드 W250)
+List<ProductCodeMapping> mappings = productCodeMappingRepository.findActiveMappings(
+    headquartersId, "W250", 2024, 12);
+
+List<ScopeEmission> emissions = scopeEmissionRepository.findByCompanyProductCodes(
+    mappings.stream().map(ProductCodeMapping::getCompanyProductCode).toList(),
+    2024, 12
+);
+
+// 매핑된 데이터만 집계
+BigDecimal total = emissions.stream()
+    .map(ScopeEmission::getTotalEmission)
+    .reduce(BigDecimal.ZERO, BigDecimal::add);
 ```
 
 ## 3. 열거형 정의
@@ -416,93 +414,6 @@ public enum Scope3Category {
 }
 ```
 
-## 4. 데이터베이스 테이블 DDL
-
-### 4.1 메인 데이터 테이블 (scope_emission) - 사용자 직접 입력 기반
-
-```sql
--- 통합 Scope 배출량 테이블 (사용자 직접 입력 기반)
-CREATE TABLE scope_emission (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-
-    -- 권한 제어 및 계층 구조
-    headquarters_id BIGINT NOT NULL COMMENT '소속 본사 ID',
-    partner_id BIGINT NULL COMMENT '협력사 ID',
-    tree_path VARCHAR(500) NOT NULL COMMENT '계층 경로',
-    company_name VARCHAR(255) NOT NULL COMMENT '회사명',
-    reporting_year INT NOT NULL COMMENT '보고 연도',
-    reporting_month INT NOT NULL COMMENT '보고 월',
-
-    -- Scope 분류 및 카테고리
-    scope_type ENUM('SCOPE1', 'SCOPE2', 'SCOPE3') NOT NULL COMMENT 'Scope 타입',
-    scope1_category_number INT NULL COMMENT 'Scope 1 카테고리 번호 (1-4)',
-    scope1_category_name VARCHAR(255) NULL COMMENT 'Scope 1 카테고리명',
-    scope2_category_number INT NULL COMMENT 'Scope 2 카테고리 번호 (1-3)',
-    scope2_category_name VARCHAR(255) NULL COMMENT 'Scope 2 카테고리명',
-    scope3_category_number INT NULL COMMENT 'Scope 3 카테고리 번호 (1-15)',
-    scope3_category_name VARCHAR(255) NULL COMMENT 'Scope 3 카테고리명',
-
-    -- 사용자 직접 입력 데이터
-    major_category VARCHAR(255) NOT NULL COMMENT '대분류 (사용자 입력)',
-    subcategory VARCHAR(255) NOT NULL COMMENT '구분 (사용자 입력)',
-    raw_material VARCHAR(255) NOT NULL COMMENT '원료/에너지 (사용자 입력)',
-    activity_amount DECIMAL(15,3) NOT NULL COMMENT '활동량 (사용자 입력)',
-    unit VARCHAR(20) NOT NULL COMMENT '단위 (사용자 입력)',
-    emission_factor DECIMAL(15,6) NOT NULL COMMENT '배출계수 (사용자 입력)',
-    total_emission DECIMAL(15,6) NOT NULL COMMENT '총 배출량 (프론트에서 계산)',
-
-    -- 집계 제어
-    is_direct_input BOOLEAN NOT NULL DEFAULT TRUE COMMENT '사용자 직접 입력 여부',
-    is_aggregated BOOLEAN NOT NULL DEFAULT FALSE COMMENT '집계 데이터 여부',
-    aggregation_level INT NOT NULL DEFAULT 0 COMMENT '집계 레벨',
-
-    -- 감사 필드
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    created_by VARCHAR(36) NOT NULL COMMENT '생성자 UUID',
-    updated_by VARCHAR(36) NOT NULL COMMENT '수정자 UUID',
-
-    -- 인덱스
-    INDEX idx_headquarters_year_month (headquarters_id, reporting_year, reporting_month),
-    INDEX idx_partner_year_month (partner_id, reporting_year, reporting_month),
-    INDEX idx_tree_path (tree_path),
-    INDEX idx_scope_type (scope_type),
-    INDEX idx_scope1_category (scope1_category_number),
-    INDEX idx_scope2_category (scope2_category_number),
-    INDEX idx_scope3_category (scope3_category_number),
-    INDEX idx_aggregation (is_aggregated, aggregation_level),
-    INDEX idx_created_at (created_at),
-
-    -- 복합 인덱스 (성능 최적화)
-    INDEX idx_hierarchy_scope (headquarters_id, tree_path, scope_type, reporting_year, reporting_month),
-    INDEX idx_category_aggregation (headquarters_id, scope_type, reporting_year, reporting_month),
-    INDEX idx_user_input (is_direct_input, headquarters_id, reporting_year),
-
-    -- 제약조건 (데이터 무결성)
-    CONSTRAINT chk_scope1_category CHECK (
-        (scope_type = 'SCOPE1' AND scope1_category_number BETWEEN 1 AND 4) OR
-        (scope_type != 'SCOPE1' AND scope1_category_number IS NULL)
-    ),
-    CONSTRAINT chk_scope2_category CHECK (
-        (scope_type = 'SCOPE2' AND scope2_category_number BETWEEN 1 AND 3) OR
-        (scope_type != 'SCOPE2' AND scope2_category_number IS NULL)
-    ),
-    CONSTRAINT chk_scope3_category CHECK (
-        (scope_type = 'SCOPE3' AND scope3_category_number BETWEEN 1 AND 15) OR
-        (scope_type != 'SCOPE3' AND scope3_category_number IS NULL)
-    ),
-    CONSTRAINT chk_positive_amounts CHECK (
-        activity_amount >= 0 AND
-        emission_factor >= 0 AND
-        total_emission >= 0
-    ),
-    CONSTRAINT chk_user_input_required CHECK (
-        (is_direct_input = TRUE AND major_category IS NOT NULL AND subcategory IS NOT NULL AND raw_material IS NOT NULL) OR
-        (is_direct_input = FALSE)
-    )
-);
-```
-
 ## 5. 테이블 요약
 
 ### 5.1 최종 테이블 구조 (비정규화)
@@ -542,8 +453,6 @@ ScopeEmission scope1Data = ScopeEmission.builder()
     .emissionFactor(new BigDecimal("2.75")) // 사용자 입력
     .totalEmission(new BigDecimal("2750")) // 프론트에서 계산
     .isDirectInput(true)
-    .createdBy("user-uuid-123")
-    .updatedBy("user-uuid-123")
     .build()
     .withScope1Category(Scope1Category.STATIONARY_COMBUSTION);
 ```
@@ -568,8 +477,6 @@ ScopeEmission scope2Data = ScopeEmission.builder()
     .emissionFactor(new BigDecimal("0.4781")) // 사용자 입력 (전력 배출계수)
     .totalEmission(new BigDecimal("2390.5")) // 프론트에서 계산
     .isDirectInput(true)
-    .createdBy("user-uuid-123")
-    .updatedBy("user-uuid-123")
     .build()
     .withScope2Category(Scope2Category.INDIRECT_EMISSIONS);
 ```
@@ -594,8 +501,6 @@ ScopeEmission scope3Data = ScopeEmission.builder()
     .emissionFactor(new BigDecimal("0.255")) // 사용자 입력
     .totalEmission(new BigDecimal("127.5")) // 프론트에서 계산
     .isDirectInput(true)
-    .createdBy("user-uuid-123")
-    .updatedBy("user-uuid-123")
     .build()
     .withScope3Category(Scope3Category.BUSINESS_TRAVEL);
 ```
@@ -686,8 +591,7 @@ public void validateUserInput() {
 **총 테이블 수: 1개**
 
 - 메인 데이터 테이블: `scope_emission` (사용자 직접 입력 기반)
-
-**총 엔티티/열거형: 5개**
+  **총 엔티티/열거형: 5개**
 
 - 메인 엔티티: 1개 (`ScopeEmission`)
 - 열거형: 4개 (`ScopeType`, `Scope1Category`, `Scope2Category`, `Scope3Category`)

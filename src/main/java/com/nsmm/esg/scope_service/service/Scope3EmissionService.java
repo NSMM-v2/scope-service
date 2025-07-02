@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
  * 
  * @author ESG Project Team
  * @version 1.0
- * @since 2024
  */
 @Slf4j
 @Service
@@ -836,6 +835,5 @@ public class Scope3EmissionService {
             updateRequest.getRawMaterial() != null ? updateRequest.getRawMaterial() : existingEmission.getRawMaterial())
         .build();
   }
-
 
 }
