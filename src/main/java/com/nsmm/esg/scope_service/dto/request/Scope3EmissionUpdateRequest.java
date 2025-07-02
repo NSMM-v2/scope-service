@@ -81,7 +81,7 @@ public class Scope3EmissionUpdateRequest {
   @Schema(description = "카테고리 번호 (1~15)", example = "1")
   @Min(value = 1, message = "카테고리 번호는 1 이상이어야 합니다")
   @Max(value = 15, message = "카테고리 번호는 15 이하여야 합니다")
-  private Integer categoryNumber; // 카테고리 번호 (1-15)
+  private Integer scope3CategoryNumber; // 카테고리 번호 (1-15)
 
   @Schema(description = "카테고리 명칭", example = "구매한 제품 및 서비스")
   @Size(max = 100, message = "카테고리 명칭은 100자 이하여야 합니다")
@@ -100,7 +100,7 @@ public class Scope3EmissionUpdateRequest {
     return majorCategory != null || subcategory != null || rawMaterial != null ||
         unit != null || emissionFactor != null || activityAmount != null ||
         totalEmission != null || reportingYear != null || reportingMonth != null ||
-        categoryNumber != null || categoryName != null;
+            scope3CategoryNumber != null || categoryName != null;
   }
 
   /**
@@ -119,7 +119,7 @@ public class Scope3EmissionUpdateRequest {
    * @return 핵심 필드가 변경되었으면 true
    */
   public boolean hasKeyFields() {
-    return reportingYear != null || reportingMonth != null || categoryNumber != null ||
+    return reportingYear != null || reportingMonth != null || scope3CategoryNumber != null ||
         majorCategory != null || subcategory != null || rawMaterial != null;
   }
 }

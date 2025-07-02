@@ -4,7 +4,7 @@ import com.nsmm.esg.scope_service.dto.request.Scope3EmissionRequest;
 import com.nsmm.esg.scope_service.dto.response.Scope3EmissionResponse;
 import com.nsmm.esg.scope_service.dto.request.Scope3EmissionUpdateRequest;
 import com.nsmm.esg.scope_service.entity.Scope3Category;
-import com.nsmm.esg.scope_service.entity.Scope3Emission;
+import com.nsmm.esg.scope_service.entity.ScopeEmission;
 import com.nsmm.esg.scope_service.repository.Scope3EmissionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +60,7 @@ public class Scope3EmissionService {
       String partnerId,
       String treePath) {
 
-    log.info("Scope 3 배출량 데이터 생성 시작: userType={}, categoryNumber={}", userType, request.getCategoryNumber());
+    log.info("Scope 3 배출량 데이터 생성 시작: userType={}, categoryNumber={}", userType, request.getScope3CategoryNumber());
     log.debug("수신된 요청 데이터: {}", request);
     log.debug("헤더 정보: userType={}, headquartersId={}, partnerId={}, treePath={}",
         userType, headquartersId, partnerId, treePath);
@@ -80,7 +80,7 @@ public class Scope3EmissionService {
     log.debug("  - totalEmission: {}", request.getTotalEmission());
     log.debug("  - reportingYear: {}", request.getReportingYear());
     log.debug("  - reportingMonth: {}", request.getReportingMonth());
-    log.debug("  - categoryNumber: {}", request.getCategoryNumber());
+    log.debug("  - categoryNumber: {}", request.getScope3CategoryNumber());
 
     try {
       // 1. 권한 검증
@@ -134,20 +134,20 @@ public class Scope3EmissionService {
       log.debug("중복 데이터 검증 완료");
 
       // 4. 카테고리 정보 조회
-      log.debug("카테고리 정보 조회 시작: categoryNumber={}", request.getCategoryNumber());
-      Scope3Category category = Scope3Category.fromCategoryNumber(request.getCategoryNumber());
-      log.debug("카테고리 정보 조회 완료: categoryName='{}'", category.getCategoryName());
+      log.debug("카테고리 정보 조회 시작: categoryNumber={}", request.getScope3CategoryNumber());
+      Scope3Category category = Scope3Category.fromCategoryNumber(request.getScope3CategoryNumber());
+      log.debug("카테고리 정보 조회 완료: categoryName='{}'", category.getScope3CategoryName());
 
       // 5. 엔티티 생성
       log.debug("엔티티 생성 시작");
-      Scope3Emission emission = Scope3Emission.builder()
+      ScopeEmission emission = ScopeEmission.builder()
           .headquartersId(finalHeadquartersId)
           .partnerId(finalPartnerId)
           .treePath(treePath)
           .reportingYear(request.getReportingYear())
           .reportingMonth(request.getReportingMonth())
-          .categoryNumber(category.getCategoryNumber())
-          .categoryName(category.getCategoryName())
+          .scope3CategoryNumber(category.getScope3CategoryNumber())
+          .scope3CategoryName(category.getScope3CategoryName())
           .majorCategory(request.getMajorCategory())
           .subcategory(request.getSubcategory())
           .rawMaterial(request.getRawMaterial())
@@ -161,7 +161,7 @@ public class Scope3EmissionService {
 
       // 6. 저장 및 응답
       log.debug("데이터베이스 저장 시작");
-      Scope3Emission savedEmission = scope3EmissionRepository.save(emission);
+      ScopeEmission savedEmission = scope3EmissionRepository.save(emission);
       log.info("Scope 3 배출량 데이터 생성 완료: id={}, totalEmission={}",
           savedEmission.getId(), savedEmission.getTotalEmission());
 
@@ -190,7 +190,7 @@ public class Scope3EmissionService {
   public Page<Scope3EmissionResponse> getScope3EmissionsByTreePath(String treePath, Pageable pageable) {
     log.info("TreePath 기반 배출량 데이터 조회: treePath={}", treePath);
 
-    Page<Scope3Emission> emissions = scope3EmissionRepository.findByTreePathStartingWith(treePath, pageable);
+    Page<ScopeEmission> emissions = scope3EmissionRepository.findByTreePathStartingWith(treePath, pageable);
 
     return emissions.map(Scope3EmissionResponse::from);
   }
@@ -211,7 +211,7 @@ public class Scope3EmissionService {
       throw new IllegalArgumentException("사용자 유형이 필요합니다");
     }
 
-    List<Scope3Emission> emissions;
+    List<ScopeEmission> emissions;
 
     // 2. 본사/협력사 구분에 따른 처리
     if ("HEADQUARTERS".equals(userType)) {
@@ -256,7 +256,7 @@ public class Scope3EmissionService {
       throw new IllegalArgumentException("사용자 유형이 필요합니다");
     }
 
-    List<Scope3Emission> emissions;
+    List<ScopeEmission> emissions;
 
     // 2. 본사/협력사 구분에 따른 처리
     if ("HEADQUARTERS".equals(userType)) {
@@ -302,7 +302,7 @@ public class Scope3EmissionService {
       throw new IllegalArgumentException("사용자 유형이 필요합니다");
     }
 
-    List<Scope3Emission> emissions;
+    List<ScopeEmission> emissions;
 
     // 2. 본사/협력사 구분에 따른 처리
     if ("HEADQUARTERS".equals(userType)) {
@@ -349,7 +349,7 @@ public class Scope3EmissionService {
       throw new IllegalArgumentException("사용자 유형이 필요합니다");
     }
 
-    List<Scope3Emission> emissions;
+    List<ScopeEmission> emissions;
 
     // 2. 본사/협력사 구분에 따른 처리
     if ("HEADQUARTERS".equals(userType)) {
@@ -398,7 +398,7 @@ public class Scope3EmissionService {
       throw new IllegalArgumentException("사용자 유형이 필요합니다");
     }
 
-    List<Scope3Emission> emissions;
+    List<ScopeEmission> emissions;
 
     // 2. 본사/협력사 구분에 따른 처리
     if ("HEADQUARTERS".equals(userType)) {
@@ -512,7 +512,7 @@ public class Scope3EmissionService {
   public Scope3EmissionResponse getScope3EmissionById(Long id, String userId, String userType, String treePath) {
     log.info("배출량 데이터 조회: id={}, userId={}, userType={}, treePath={}", id, userId, userType, treePath);
 
-    Scope3Emission emission = scope3EmissionRepository.findById(id)
+    ScopeEmission emission = scope3EmissionRepository.findById(id)
         .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + id));
 
     // 권한 검증: 본사는 무조건 허용, 협력사는 본인/하위조직만 허용
@@ -553,7 +553,7 @@ public class Scope3EmissionService {
     }
 
     // 2. 기존 데이터 조회
-    Scope3Emission existingEmission = scope3EmissionRepository.findById(id)
+    ScopeEmission existingEmission = scope3EmissionRepository.findById(id)
         .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + id));
 
     // 3. 권한 검증
@@ -599,7 +599,7 @@ public class Scope3EmissionService {
     }
 
     // 5. 부분 업데이트 로직 - null이 아닌 필드만 업데이트
-    Scope3Emission.Scope3EmissionBuilder builder = existingEmission.toBuilder();
+    ScopeEmission.ScopeEmissionBuilder builder = existingEmission.toBuilder();
 
     // 비즈니스 데이터 필드 업데이트
     if (request.getMajorCategory() != null) {
@@ -628,11 +628,11 @@ public class Scope3EmissionService {
     if (request.getReportingMonth() != null) {
       builder.reportingMonth(request.getReportingMonth());
     }
-    if (request.getCategoryNumber() != null) {
-      builder.categoryNumber(request.getCategoryNumber());
+    if (request.getScope3CategoryNumber() != null) {
+      builder.scope3CategoryNumber(request.getScope3CategoryNumber());
     }
     if (request.getCategoryName() != null) {
-      builder.categoryName(request.getCategoryName());
+      builder.scope3CategoryName(request.getCategoryName());
     }
 
     // 6. 총 배출량 처리
@@ -653,7 +653,7 @@ public class Scope3EmissionService {
     }
 
     // 7. 저장 및 응답
-    Scope3Emission updatedEmission = scope3EmissionRepository.save(builder.build());
+    ScopeEmission updatedEmission = scope3EmissionRepository.save(builder.build());
     log.info("Scope 3 배출량 데이터 업데이트 완료: id={}, totalEmission={}",
         updatedEmission.getId(), updatedEmission.getTotalEmission());
 
@@ -678,7 +678,7 @@ public class Scope3EmissionService {
     log.info("Scope 3 배출량 데이터 삭제 시작: id={}, userType={}", id, userType);
 
     // 1. 기존 데이터 조회
-    Scope3Emission emission = scope3EmissionRepository.findById(id)
+    ScopeEmission emission = scope3EmissionRepository.findById(id)
         .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + id));
 
     // 2. 권한 검증
@@ -772,7 +772,7 @@ public class Scope3EmissionService {
       Long partnerId,
       Long excludeId) {
 
-    List<Scope3Emission> existingData;
+    List<ScopeEmission> existingData;
 
     if ("HEADQUARTERS".equals(userType)) {
       existingData = scope3EmissionRepository
@@ -780,17 +780,17 @@ public class Scope3EmissionService {
               headquartersId,
               request.getReportingYear(),
               request.getReportingMonth(),
-              request.getCategoryNumber(),
+              request.getScope3CategoryNumber(),
               request.getMajorCategory(),
               request.getSubcategory(),
               request.getRawMaterial());
     } else {
       existingData = scope3EmissionRepository
-          .findByPartnerIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+          .findByPartnerIdAndReportingYearAndReportingMonthAndScope3CategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
               partnerId,
               request.getReportingYear(),
               request.getReportingMonth(),
-              request.getCategoryNumber(),
+              request.getScope3CategoryNumber(),
               request.getMajorCategory(),
               request.getSubcategory(),
               request.getRawMaterial());
@@ -818,15 +818,15 @@ public class Scope3EmissionService {
    */
   private Scope3EmissionRequest createValidationRequest(
       Scope3EmissionUpdateRequest updateRequest,
-      Scope3Emission existingEmission) {
+      ScopeEmission existingEmission) {
 
     return Scope3EmissionRequest.builder()
         .reportingYear(updateRequest.getReportingYear() != null ? updateRequest.getReportingYear()
             : existingEmission.getReportingYear())
         .reportingMonth(updateRequest.getReportingMonth() != null ? updateRequest.getReportingMonth()
             : existingEmission.getReportingMonth())
-        .categoryNumber(updateRequest.getCategoryNumber() != null ? updateRequest.getCategoryNumber()
-            : existingEmission.getCategoryNumber())
+        .scope3CategoryNumber(updateRequest.getScope3CategoryNumber() != null ? updateRequest.getScope3CategoryNumber()
+            : existingEmission.getScope3CategoryNumber())
         .majorCategory(updateRequest.getMajorCategory() != null ? updateRequest.getMajorCategory()
             : existingEmission.getMajorCategory())
         .subcategory(

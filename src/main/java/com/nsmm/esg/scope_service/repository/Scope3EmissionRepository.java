@@ -1,6 +1,6 @@
 package com.nsmm.esg.scope_service.repository;
 
-import com.nsmm.esg.scope_service.entity.Scope3Emission;
+import com.nsmm.esg.scope_service.entity.ScopeEmission;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,7 +22,7 @@ import java.util.List;
  * @version 1.0
  */
 @Repository
-public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, Long> {
+public interface Scope3EmissionRepository extends JpaRepository<ScopeEmission, Long> {
 
         // ========================================================================
         // 본사용 쿼리 메서드 (Headquarters Query Methods)
@@ -31,28 +31,28 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * 본사 ID로 모든 배출량 데이터 조회
          */
-        List<Scope3Emission> findByHeadquartersId(Long headquartersId);
+        List<ScopeEmission> findByHeadquartersId(Long headquartersId);
 
         /**
          * 본사 ID와 연도로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByHeadquartersIdAndReportingYear(Long headquartersId, Integer year);
+        List<ScopeEmission> findByHeadquartersIdAndReportingYear(Long headquartersId, Integer year);
 
         /**
          * 본사 ID와 카테고리 번호로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByHeadquartersIdAndCategoryNumber(Long headquartersId, Integer categoryNumber);
+        List<ScopeEmission> findByHeadquartersIdAndCategoryNumber(Long headquartersId, Integer categoryNumber);
 
         /**
          * 본사 ID와 연도/월/카테고리로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumber(
+        List<ScopeEmission> findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumber(
                         Long headquartersId, Integer year, Integer month, Integer categoryNumber);
 
         /**
          * 본사 ID와 연도/월로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByHeadquartersIdAndReportingYearAndReportingMonth(
+        List<ScopeEmission> findByHeadquartersIdAndReportingYearAndReportingMonth(
                         Long headquartersId, Integer year, Integer month);
 
         /**
@@ -70,7 +70,7 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * 본사 ID 기반 중복 데이터 조회 (수정용 - 특정 ID 제외)
          */
-        List<Scope3Emission> findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+        List<ScopeEmission> findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
                         Long headquartersId,
                         Integer reportingYear,
                         Integer reportingMonth,
@@ -86,40 +86,40 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * 협력사 ID와 TreePath로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByPartnerIdAndTreePathStartingWith(Long partnerId, String treePath);
+        List<ScopeEmission> findByPartnerIdAndTreePathStartingWith(Long partnerId, String treePath);
 
         /**
          * 협력사 ID, TreePath, 연도로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByPartnerIdAndTreePathStartingWithAndReportingYear(
+        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndReportingYear(
                         Long partnerId, String treePath, Integer year);
 
         /**
          * 협력사 ID, TreePath, 카테고리 번호로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByPartnerIdAndTreePathStartingWithAndCategoryNumber(
+        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndCategoryNumber(
                         Long partnerId, String treePath, Integer categoryNumber);
 
         /**
          * 협력사 ID, TreePath, 연도/월/카테고리로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonthAndCategoryNumber(
+        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonthAndCategoryNumber(
                         Long partnerId, String treePath, Integer year, Integer month, Integer categoryNumber);
 
         /**
          * 협력사 ID, TreePath, 연도/월로 배출량 데이터 조회
          */
-        List<Scope3Emission> findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonth(
+        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonth(
                         Long partnerId, String treePath, Integer year, Integer month);
 
         /**
          * 협력사 ID 기반 중복 데이터 검사
          */
-        boolean existsByPartnerIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+        boolean existsByPartnerIdAndReportingYearAndReportingMonthAndScope3CategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
                         Long partnerId,
                         Integer reportingYear,
                         Integer reportingMonth,
-                        Integer categoryNumber,
+                        Integer scope3CategoryNumber,
                         String majorCategory,
                         String subcategory,
                         String rawMaterial);
@@ -127,11 +127,11 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * 협력사 ID 기반 중복 데이터 조회 (수정용 - 특정 ID 제외)
          */
-        List<Scope3Emission> findByPartnerIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+        List<ScopeEmission> findByPartnerIdAndReportingYearAndReportingMonthAndScope3CategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
                         Long partnerId,
                         Integer reportingYear,
                         Integer reportingMonth,
-                        Integer categoryNumber,
+                        Integer scope3CategoryNumber,
                         String majorCategory,
                         String subcategory,
                         String rawMaterial);
@@ -143,14 +143,14 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * TreePath로 시작하는 모든 배출량 데이터 조회
          */
-        @Query("SELECT s FROM Scope3Emission s WHERE s.treePath LIKE :treePath%")
-        List<Scope3Emission> findByTreePathStartingWith(@Param("treePath") String treePath);
+        @Query("SELECT s FROM ScopeEmission s WHERE s.treePath LIKE :treePath%")
+        List<ScopeEmission> findByTreePathStartingWith(@Param("treePath") String treePath);
 
         /**
          * TreePath로 시작하는 모든 배출량 데이터 조회 (페이지네이션)
          */
-        @Query("SELECT s FROM Scope3Emission s WHERE s.treePath LIKE :treePath% ORDER BY s.reportingYear DESC, s.reportingMonth DESC")
-        Page<Scope3Emission> findByTreePathStartingWith(@Param("treePath") String treePath, Pageable pageable);
+        @Query("SELECT s FROM ScopeEmission s WHERE s.treePath LIKE :treePath% ORDER BY s.reportingYear DESC, s.reportingMonth DESC")
+        Page<ScopeEmission> findByTreePathStartingWith(@Param("treePath") String treePath, Pageable pageable);
 
         // ========================================================================
         // 집계 쿼리 메서드 (Aggregation Query Methods)
@@ -159,11 +159,11 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * 본사 기준 연도/월별 카테고리 총계
          */
-        @Query("SELECT e.categoryNumber, SUM(e.totalEmission) FROM Scope3Emission e " +
+        @Query("SELECT e.scope3CategoryNumber, SUM(e.totalEmission) FROM ScopeEmission e " +
                         "WHERE e.headquartersId = :headquartersId " +
                         "AND e.reportingYear = :year " +
                         "AND e.reportingMonth = :month " +
-                        "GROUP BY e.categoryNumber")
+                        "GROUP BY e.scope3CategoryNumber")
         List<Object[]> sumTotalEmissionByCategoryAndYearAndMonthForHeadquarters(
                         @Param("headquartersId") Long headquartersId,
                         @Param("year") Integer year,
@@ -172,10 +172,10 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * 본사 기준 연도별 카테고리 총계
          */
-        @Query("SELECT e.categoryNumber, SUM(e.totalEmission) FROM Scope3Emission e " +
+        @Query("SELECT e.scope3CategoryNumber, SUM(e.totalEmission) FROM ScopeEmission e " +
                         "WHERE e.headquartersId = :headquartersId " +
                         "AND e.reportingYear = :year " +
-                        "GROUP BY e.categoryNumber")
+                        "GROUP BY e.scope3CategoryNumber")
         List<Object[]> sumTotalEmissionByCategoryAndYearForHeadquarters(
                         @Param("headquartersId") Long headquartersId,
                         @Param("year") Integer year);
@@ -183,12 +183,12 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * 협력사 기준 연도/월별 카테고리 총계
          */
-        @Query("SELECT e.categoryNumber, SUM(e.totalEmission) FROM Scope3Emission e " +
+        @Query("SELECT e.scope3CategoryNumber, SUM(e.totalEmission) FROM ScopeEmission e " +
                         "WHERE e.partnerId = :partnerId " +
                         "AND e.treePath LIKE CONCAT(:treePath, '%') " +
                         "AND e.reportingYear = :year " +
                         "AND e.reportingMonth = :month " +
-                        "GROUP BY e.categoryNumber")
+                        "GROUP BY e.scope3CategoryNumber")
         List<Object[]> sumTotalEmissionByCategoryAndYearAndMonthForPartner(
                         @Param("partnerId") Long partnerId,
                         @Param("treePath") String treePath,
@@ -198,11 +198,11 @@ public interface Scope3EmissionRepository extends JpaRepository<Scope3Emission, 
         /**
          * 협력사 기준 연도별 카테고리 총계
          */
-        @Query("SELECT e.categoryNumber, SUM(e.totalEmission) FROM Scope3Emission e " +
+        @Query("SELECT e.scope3CategoryNumber, SUM(e.totalEmission) FROM ScopeEmission e " +
                         "WHERE e.partnerId = :partnerId " +
                         "AND e.treePath LIKE CONCAT(:treePath, '%') " +
                         "AND e.reportingYear = :year " +
-                        "GROUP BY e.categoryNumber")
+                        "GROUP BY e.scope3CategoryNumber")
         List<Object[]> sumTotalEmissionByCategoryAndYearForPartner(
                         @Param("partnerId") Long partnerId,
                         @Param("treePath") String treePath,

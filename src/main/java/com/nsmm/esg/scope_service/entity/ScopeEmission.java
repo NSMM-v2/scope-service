@@ -14,32 +14,37 @@ import java.time.LocalDateTime;
 
 /**
  * Scope 3 배출량 엔티티 - Scope 3
- * 
+ *
  * 기타 간접 배출량 관리 (15개 카테고리):
  * - 업스트림 카테고리 (1-8): 기업 운영 이전 단계 배출
  * - 다운스트림 카테고리 (9-15): 기업 운영 이후 단계 배출
  * - CSV 기반 분류 체계 (대분류, 구분, 원료/에너지)
  * - 간소화된 계산 공식: 활동량 × 배출계수 = 총 배출량
- * 
+ *
  * @author ESG Project Team
  * @version 1.0
  */
 @Entity
-@Table(name = "scope3_emission")
+@Table(name = "scope_emission")
 @Getter
 @Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
-public class Scope3Emission {
-
+public class ScopeEmission {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id; // Scope 3 배출량 고유 식별자
+  private Long id;
 
   // ========================================================================
   // 프론트엔드 입력 구조와 1:1 매핑되는 주요 필드 (입력 순서 기준)
   // ========================================================================
+
+  @Column(name= "company_product", nullable = false)
+  private String companyProduct; // 제품명
+
+  @Column(name= "company_product_code", nullable = false)
+  private String companyProductCode; //제품 코드
 
   @Column(name = "major_category", nullable = false)
   private String majorCategory; // 대분류 (프론트엔드 category)
@@ -85,15 +90,45 @@ public class Scope3Emission {
   @Column(name = "reporting_month", nullable = false)
   private Integer reportingMonth; // 보고 월
 
-  @Column(name = "category_number", nullable = false)
-  private Integer categoryNumber; // 카테고리 번호 (1-15)
+  // Scope 분류 및 카테고리
+  @Enumerated(EnumType.STRING)
+  @Column(name = "scope_type", nullable = false)
+  private ScopeType scopeType; // SCOPE1, SCOPE2, SCOPE3
 
-  @Column(name = "category_name", nullable = false)
-  private String categoryName; // 카테고리 한국어 명칭
+  @Column(name = "scope1_category_number")
+  private Integer scope1CategoryNumber; // 1-4
+
+  @Column(name = "scope1_category_name")
+  private String scope1CategoryName;
+
+  @Column(name = "scope2_category_number")
+  private Integer scope2CategoryNumber; // 1-3
+
+  @Column(name = "scope2_category_name")
+  private String scope2CategoryName;
+
+  @Column(name = "scope3_category_number")
+  private Integer scope3CategoryNumber; // 1-15
+
+  @Column(name = "scope3_category_name")
+  private String scope3CategoryName;
 
   // ========================================================================
   // 감사 필드 (Audit Fields)
   // ========================================================================
+
+  // 집계 제어
+  @Column(name = "is_direct_input", nullable = false)
+  @Builder.Default
+  private Boolean isDirectInput = true;
+
+  @Column(name = "is_aggregated", nullable = false)
+  @Builder.Default
+  private Boolean isAggregated = false;
+
+  @Column(name = "aggregation_level", nullable = false)
+  @Builder.Default
+  private Integer aggregationLevel = 0;
 
   @CreatedDate
   @Column(name = "created_at", updatable = false)
@@ -109,24 +144,29 @@ public class Scope3Emission {
 
   /**
    * Scope 3 데이터 업데이트 (불변성 보장)
-   * 
+   *
    * @param activityAmount 새로운 활동량
    * @param updatedBy      수정자 UUID
    * @return 업데이트된 새 인스턴스
    */
-  public Scope3Emission updateData(BigDecimal activityAmount, String updatedBy) {
+  public ScopeEmission updateData(BigDecimal activityAmount, String updatedBy) {
     // 배출량 재계산: 활동량 × 배출계수
     BigDecimal newTotalEmission = activityAmount.multiply(this.emissionFactor);
 
-    return Scope3Emission.builder()
+    return ScopeEmission.builder()
         .id(this.id)
         .headquartersId(this.headquartersId)
         .partnerId(this.partnerId)
         .treePath(this.treePath)
         .reportingYear(this.reportingYear)
         .reportingMonth(this.reportingMonth)
-        .categoryNumber(this.categoryNumber)
-        .categoryName(this.categoryName)
+        .scopeType(this.scopeType)
+        .scope1CategoryNumber(this.scope1CategoryNumber)
+        .scope1CategoryName(this.scope1CategoryName)
+        .scope2CategoryNumber(this.scope1CategoryNumber)
+        .scope2CategoryName(this.scope1CategoryName)
+        .scope3CategoryNumber(this.scope1CategoryNumber)
+        .scope3CategoryName(this.scope1CategoryName)
         .majorCategory(this.majorCategory)
         .subcategory(this.subcategory)
         .rawMaterial(this.rawMaterial)
@@ -141,24 +181,29 @@ public class Scope3Emission {
 
   /**
    * 배출계수 업데이트 (불변성 보장)
-   * 
+   *
    * @param emissionFactor 새로운 배출계수
    * @param updatedBy      수정자 UUID
    * @return 업데이트된 새 인스턴스
    */
-  public Scope3Emission updateEmissionFactor(BigDecimal emissionFactor, String updatedBy) {
+  public ScopeEmission updateEmissionFactor(BigDecimal emissionFactor, String updatedBy) {
     // 배출량 재계산: 기존 활동량 × 새 배출계수
     BigDecimal newTotalEmission = this.activityAmount.multiply(emissionFactor);
 
-    return Scope3Emission.builder()
+    return ScopeEmission.builder()
         .id(this.id)
         .headquartersId(this.headquartersId)
         .partnerId(this.partnerId)
         .treePath(this.treePath)
         .reportingYear(this.reportingYear)
         .reportingMonth(this.reportingMonth)
-        .categoryNumber(this.categoryNumber)
-        .categoryName(this.categoryName)
+        .scopeType(this.scopeType)
+        .scope1CategoryNumber(this.scope1CategoryNumber)
+        .scope1CategoryName(this.scope1CategoryName)
+        .scope2CategoryNumber(this.scope1CategoryNumber)
+        .scope2CategoryName(this.scope1CategoryName)
+        .scope2CategoryNumber(this.scope1CategoryNumber)
+        .scope2CategoryName(this.scope1CategoryName)
         .majorCategory(this.majorCategory)
         .subcategory(this.subcategory)
         .rawMaterial(this.rawMaterial)
@@ -175,21 +220,21 @@ public class Scope3Emission {
    * 카테고리 타입 확인: 업스트림 여부
    */
   public boolean isUpstreamCategory() {
-    return categoryNumber >= 1 && categoryNumber <= 8;
+    return scope3CategoryNumber >= 1 && scope3CategoryNumber <= 8;
   }
 
   /**
    * 카테고리 타입 확인: 다운스트림 여부
    */
   public boolean isDownstreamCategory() {
-    return categoryNumber >= 9 && categoryNumber <= 15;
+    return scope3CategoryNumber >= 9 && scope3CategoryNumber <= 15;
   }
 
   /**
    * Scope3Category Enum으로 변환
    */
   public Scope3Category toScope3Category() {
-    return Scope3Category.fromCategoryNumber(this.categoryNumber);
+    return Scope3Category.fromCategoryNumber(this.scope3CategoryNumber);
   }
 
 }

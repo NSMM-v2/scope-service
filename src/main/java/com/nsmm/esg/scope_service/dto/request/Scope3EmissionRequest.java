@@ -84,10 +84,10 @@ public class Scope3EmissionRequest {
   @NotNull(message = "카테고리 번호는 필수입니다")
   @Min(value = 1, message = "카테고리 번호는 1 이상이어야 합니다")
   @Max(value = 15, message = "카테고리 번호는 15 이하여야 합니다")
-  private Integer categoryNumber; // 카테고리 번호 (1-15)
+  private Integer scope3CategoryNumber; // 카테고리 번호 (1-15)
 
   @Schema(description = "카테고리 명칭", example = "구매한 제품 및 서비스")
   @NotBlank(message = "카테고리 명칭은 필수입니다")
   @Size(max = 100, message = "카테고리 명칭은 100자 이하여야 합니다")
-  private String categoryName; // 카테고리 명칭
+  private String scope3CategoryName; // 카테고리 명칭
 }

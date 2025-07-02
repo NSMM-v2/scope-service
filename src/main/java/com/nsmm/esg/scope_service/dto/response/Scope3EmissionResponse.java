@@ -1,6 +1,6 @@
 package com.nsmm.esg.scope_service.dto.response;
 
-import com.nsmm.esg.scope_service.entity.Scope3Emission;
+import com.nsmm.esg.scope_service.entity.ScopeEmission;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,6 +27,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Schema(description = "Scope 3 배출량 응답 DTO (프론트엔드와 1:1 매핑)")
 public class Scope3EmissionResponse {
+  @Schema(description = "Scope type", example = "scope 1 ")
+  private String ScopeType;
 
   @Schema(description = "Scope 3 배출량 고유 식별자", example = "1")
   private Long id; // Scope 3 배출량 고유 식별자
@@ -62,10 +64,10 @@ public class Scope3EmissionResponse {
   private Integer reportingMonth; // 보고 월
 
   @Schema(description = "카테고리 번호 (1~15)", example = "1")
-  private Integer categoryNumber; // 카테고리 번호 (1-15)
+  private Integer scope3CategoryNumber; // 카테고리 번호 (1-15)
 
   @Schema(description = "카테고리 명칭", example = "구매한 제품 및 서비스")
-  private String categoryName; // 카테고리 명칭
+  private String scope3CategoryName; // 카테고리 명칭
 
   @Schema(description = "생성 일시", example = "2024-06-20T12:34:56")
   private LocalDateTime createdAt; // 생성 일시
@@ -79,7 +81,7 @@ public class Scope3EmissionResponse {
    * @param entity Scope3Emission 엔티티
    * @return Scope3EmissionResponse DTO
    */
-  public static Scope3EmissionResponse from(Scope3Emission entity) {
+  public static Scope3EmissionResponse from(ScopeEmission entity) {
     return Scope3EmissionResponse.builder()
         .id(entity.getId())
         .majorCategory(entity.getMajorCategory())
@@ -92,8 +94,8 @@ public class Scope3EmissionResponse {
         .isManualInput(entity.getIsManualInput()) // 수동 입력 여부 추가
         .reportingYear(entity.getReportingYear())
         .reportingMonth(entity.getReportingMonth())
-        .categoryNumber(entity.getCategoryNumber())
-        .categoryName(entity.getCategoryName())
+        .scope3CategoryNumber(entity.getScope3CategoryNumber())
+        .scope3CategoryName(entity.getScope3CategoryName())
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
         .build();

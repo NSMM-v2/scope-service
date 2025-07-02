@@ -69,7 +69,7 @@ public class Scope3EmissionController {
       @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
-    log.info("Scope 3 배출량 생성 요청: userType={}, categoryNumber={}", userType, request.getCategoryNumber());
+    log.info("Scope 3 배출량 생성 요청: userType={}, scope3CategoryNumber={}", userType, request.getScope3CategoryNumber());
     logHeaders("Scope 3 배출량 생성", userType, headquartersId, partnerId, treePath);
 
     try {
@@ -214,20 +214,20 @@ public class Scope3EmissionController {
   @Operation(summary = "Scope 3 배출량 카테고리별 조회", description = "회사 유형과 카테고리 번호로 Scope 3 배출량 데이터를 조회합니다.")
   @GetMapping("/emissions/category/{categoryNumber}")
   public ResponseEntity<ApiResponse<List<Scope3EmissionResponse>>> getScope3EmissionsByCategory(
-      @PathVariable Integer categoryNumber,
+      @PathVariable Integer scope3CategoryNumber,
       @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
       @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
       @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
-    log.info("카테고리별 Scope 3 배출량 조회 요청: categoryNumber={}, userType={}", categoryNumber, userType);
+    log.info("카테고리별 Scope 3 배출량 조회 요청: categoryNumber={}, userType={}", scope3CategoryNumber, userType);
     logHeaders("카테고리별 Scope 3 배출량 조회", userType, headquartersId, partnerId, treePath);
 
     try {
       List<Scope3EmissionResponse> response = scope3EmissionService.getScope3EmissionsByCategory(
-          categoryNumber, userType, headquartersId, partnerId, treePath);
+              scope3CategoryNumber, userType, headquartersId, partnerId, treePath);
       return ResponseEntity.ok(ApiResponse.success(response,
-          String.format("카테고리 %d번 Scope 3 배출량 데이터를 조회했습니다.", categoryNumber)));
+          String.format("카테고리 %d번 Scope 3 배출량 데이터를 조회했습니다.", scope3CategoryNumber)));
     } catch (IllegalArgumentException e) {
       log.error("카테고리별 Scope 3 배출량 조회 실패: {}", e.getMessage());
       return ResponseEntity.badRequest()
@@ -284,21 +284,21 @@ public class Scope3EmissionController {
   public ResponseEntity<ApiResponse<List<Scope3EmissionResponse>>> getScope3EmissionsByYearAndMonthAndCategory(
       @PathVariable Integer year,
       @PathVariable Integer month,
-      @PathVariable Integer categoryNumber,
+      @PathVariable Integer scope3CategoryNumber,
       @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
       @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
       @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
     log.info("연도/월/카테고리별 Scope 3 배출량 조회 요청: year={}, month={}, category={}, userType={}",
-        year, month, categoryNumber, userType);
+        year, month, scope3CategoryNumber, userType);
     logHeaders("연도/월/카테고리별 Scope 3 배출량 조회", userType, headquartersId, partnerId, treePath);
 
     try {
       List<Scope3EmissionResponse> response = scope3EmissionService.getScope3EmissionsByYearAndMonthAndCategory(
-          year, month, categoryNumber, userType, headquartersId, partnerId, treePath);
+          year, month, scope3CategoryNumber, userType, headquartersId, partnerId, treePath);
       return ResponseEntity.ok(ApiResponse.success(response,
-          String.format("%d년 %d월 카테고리 %d번 배출량 데이터를 조회했습니다.", year, month, categoryNumber)));
+          String.format("%d년 %d월 카테고리 %d번 배출량 데이터를 조회했습니다.", year, month, scope3CategoryNumber)));
     } catch (IllegalArgumentException e) {
       log.error("연도/월/카테고리별 Scope 3 배출량 조회 실패: {}", e.getMessage());
       return ResponseEntity.badRequest()
