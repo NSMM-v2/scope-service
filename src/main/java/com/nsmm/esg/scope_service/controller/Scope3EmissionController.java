@@ -212,7 +212,7 @@ public class Scope3EmissionController {
    * 카테고리별 배출량 데이터 조회
    */
   @Operation(summary = "Scope 3 배출량 카테고리별 조회", description = "회사 유형과 카테고리 번호로 Scope 3 배출량 데이터를 조회합니다.")
-  @GetMapping("/emissions/category/{categoryNumber}")
+  @GetMapping("/emissions/category/{scope3CategoryNumber}")
   public ResponseEntity<ApiResponse<List<Scope3EmissionResponse>>> getScope3EmissionsByCategory(
       @PathVariable Integer scope3CategoryNumber,
       @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
@@ -220,7 +220,7 @@ public class Scope3EmissionController {
       @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
-    log.info("카테고리별 Scope 3 배출량 조회 요청: categoryNumber={}, userType={}", scope3CategoryNumber, userType);
+    log.info("카테고리별 Scope 3 배출량 조회 요청: scope3CategoryNumber={}, userType={}", scope3CategoryNumber, userType);
     logHeaders("카테고리별 Scope 3 배출량 조회", userType, headquartersId, partnerId, treePath);
 
     try {
@@ -280,7 +280,7 @@ public class Scope3EmissionController {
    * 연도/월/카테고리별 배출량 데이터 조회
    */
   @Operation(summary = "연도/월/카테고리별 배출량 조회", description = "선택된 연도/월의 특정 카테고리 배출량 데이터를 조회합니다.")
-  @GetMapping("/emissions/year/{year}/month/{month}/category/{categoryNumber}")
+  @GetMapping("/emissions/year/{year}/month/{month}/category/{scope3CategoryNumber}")
   public ResponseEntity<ApiResponse<List<Scope3EmissionResponse>>> getScope3EmissionsByYearAndMonthAndCategory(
       @PathVariable Integer year,
       @PathVariable Integer month,

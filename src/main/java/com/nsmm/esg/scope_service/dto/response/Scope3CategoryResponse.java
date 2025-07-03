@@ -28,7 +28,7 @@ public class Scope3CategoryResponse {
   private Integer scope3CategoryNumber; // 카테고리 번호 (1-15)
 
   @Schema(description = "카테고리 한국어 명칭", example = "구매한 제품 및 서비스")
-  private String categoryName; // 카테고리 한국어 명칭
+  private String scope3CategoryName; // 카테고리 한국어 명칭
 
   @Schema(description = "업스트림/다운스트림 구분", example = "업스트림")
   private String categoryType; // 업스트림/다운스트림 구분
@@ -42,7 +42,7 @@ public class Scope3CategoryResponse {
   public static Scope3CategoryResponse from(Scope3Category category) {
     return Scope3CategoryResponse.builder()
         .scope3CategoryNumber(category.getScope3CategoryNumber())
-        .categoryName(category.getScope3CategoryName())
+        .scope3CategoryName(category.getScope3CategoryName())
         .categoryType(category.isUpstream() ? "업스트림" : "다운스트림")
         .build();
   }

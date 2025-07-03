@@ -11,8 +11,8 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "Scope 1,2 배출량 생성 요청 DTO (프론트엔드 입력 구조와 1:1 매핑)")
-public class Scope12EmissionRequest {
+@Schema(description = "Scope 1 배출량 생성 요청 DTO (프론트엔드 입력 구조와 1:1 매핑)")
+public class Scope1EmissionRequest {
     @Schema(description = "제품", example = "제품명")
     @Size(max = 20, message = "제품명은 20자 이하여야 합니다")
     private String companyProduct;
@@ -20,6 +20,11 @@ public class Scope12EmissionRequest {
     @Schema(description = "제품코드", example = "회사 제품 코드")
     @Size(max = 10, message = "제품 코드는 10자 이하여야 합니다")
     private String companyProductCode;
+
+    @Schema(description = "대분류", example = "구매한 제품 및 서비스")
+    @NotBlank(message = "대분류는 필수입니다")
+    @Size(max = 100, message = "대분류는 100자 이하여야 합니다")
+    private String majorCategory; // 대분류 (프론트 category)
 
     @Schema(description = "구분", example = "원재료")
     @NotBlank(message = "구분은 필수입니다")
@@ -68,14 +73,14 @@ public class Scope12EmissionRequest {
     @Max(value = 12, message = "보고 월은 12 이하여야 합니다")
     private Integer reportingMonth; // 보고 월
 
-    @Schema(description = "카테고리 번호 (1~15)", example = "1")
+    @Schema(description = "카테고리 번호 (1~10)", example = "1")
     @NotNull(message = "카테고리 번호는 필수입니다")
     @Min(value = 1, message = "카테고리 번호는 1 이상이어야 합니다")
-    @Max(value = 15, message = "카테고리 번호는 15 이하여야 합니다")
-    private Integer categoryNumber; // 카테고리 번호 (1-15)
+    @Max(value = 10, message = "카테고리 번호는 10 이하여야 합니다")
+    private Integer scope1CategoryNumber; // 카테고리 번호 (1-10)
 
     @Schema(description = "카테고리 명칭", example = "구매한 제품 및 서비스")
     @NotBlank(message = "카테고리 명칭은 필수입니다")
     @Size(max = 100, message = "카테고리 명칭은 100자 이하여야 합니다")
-    private String categoryName; // 카테고리 명칭
+    private String scope1CategoryName; // 카테고리 명칭
 }

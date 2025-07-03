@@ -5,6 +5,7 @@ import com.nsmm.esg.scope_service.dto.response.Scope3EmissionResponse;
 import com.nsmm.esg.scope_service.dto.request.Scope3EmissionUpdateRequest;
 import com.nsmm.esg.scope_service.entity.Scope3Category;
 import com.nsmm.esg.scope_service.entity.ScopeEmission;
+import com.nsmm.esg.scope_service.entity.ScopeType;
 import com.nsmm.esg.scope_service.repository.Scope3EmissionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -134,9 +135,9 @@ public class Scope3EmissionService {
       log.debug("중복 데이터 검증 완료");
 
       // 4. 카테고리 정보 조회
-      log.debug("카테고리 정보 조회 시작: categoryNumber={}", request.getScope3CategoryNumber());
+      log.debug("카테고리 정보 조회 시작: scope3CategoryNumber={}", request.getScope3CategoryNumber());
       Scope3Category category = Scope3Category.fromCategoryNumber(request.getScope3CategoryNumber());
-      log.debug("카테고리 정보 조회 완료: categoryName='{}'", category.getScope3CategoryName());
+      log.debug("카테고리 정보 조회 완료: scope3CategoryName='{}'", category.getScope3CategoryName());
 
       // 5. 엔티티 생성
       log.debug("엔티티 생성 시작");
@@ -156,6 +157,7 @@ public class Scope3EmissionService {
           .emissionFactor(request.getEmissionFactor())
           .totalEmission(request.getTotalEmission())
           .isManualInput(request.getIsManualInput() != null ? request.getIsManualInput() : false) // 수동 입력 여부 설정
+          .scopeType(ScopeType.SCOPE3)
           .build();
       log.debug("엔티티 생성 완료");
 
@@ -310,7 +312,7 @@ public class Scope3EmissionService {
         throw new IllegalArgumentException("본사 ID가 필요합니다");
       }
       // 본사: 모든 하위 조직 데이터 조회 가능
-      emissions = scope3EmissionRepository.findByHeadquartersIdAndCategoryNumber(
+      emissions = scope3EmissionRepository.findByHeadquartersIdAndScope3CategoryNumber(
           Long.parseLong(headquartersId), categoryNumber);
     } else if ("PARTNER".equals(userType)) {
       if (partnerId == null) {
@@ -320,7 +322,7 @@ public class Scope3EmissionService {
         throw new IllegalArgumentException("협력사는 TreePath가 필요합니다");
       }
       // 협력사: 본인 및 하위 조직 데이터만 조회 가능
-      emissions = scope3EmissionRepository.findByPartnerIdAndTreePathStartingWithAndCategoryNumber(
+      emissions = scope3EmissionRepository.findByPartnerIdAndTreePathStartingWithAndScope3CategoryNumber(
           Long.parseLong(partnerId), treePath, categoryNumber);
     } else {
       throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
@@ -406,7 +408,7 @@ public class Scope3EmissionService {
         throw new IllegalArgumentException("본사 ID가 필요합니다");
       }
       // 본사: 모든 하위 조직 데이터 조회 가능
-      emissions = scope3EmissionRepository.findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumber(
+      emissions = scope3EmissionRepository.findByHeadquartersIdAndReportingYearAndReportingMonthAndScope3CategoryNumber(
           Long.parseLong(headquartersId), year, month, categoryNumber);
     } else if ("PARTNER".equals(userType)) {
       if (partnerId == null) {
@@ -417,7 +419,7 @@ public class Scope3EmissionService {
       }
       // 협력사: 본인 및 하위 조직 데이터만 조회 가능
       emissions = scope3EmissionRepository
-          .findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonthAndCategoryNumber(
+          .findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonthAndScope3CategoryNumber(
               Long.parseLong(partnerId), treePath, year, month, categoryNumber);
     } else {
       throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
@@ -631,8 +633,8 @@ public class Scope3EmissionService {
     if (request.getScope3CategoryNumber() != null) {
       builder.scope3CategoryNumber(request.getScope3CategoryNumber());
     }
-    if (request.getCategoryName() != null) {
-      builder.scope3CategoryName(request.getCategoryName());
+    if (request.getScope3CategoryName() != null) {
+      builder.scope3CategoryName(request.getScope3CategoryName());
     }
 
     // 6. 총 배출량 처리
@@ -776,7 +778,7 @@ public class Scope3EmissionService {
 
     if ("HEADQUARTERS".equals(userType)) {
       existingData = scope3EmissionRepository
-          .findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+          .findByHeadquartersIdAndReportingYearAndReportingMonthAndScope3CategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
               headquartersId,
               request.getReportingYear(),
               request.getReportingMonth(),

@@ -85,7 +85,7 @@ public class Scope3EmissionUpdateRequest {
 
   @Schema(description = "카테고리 명칭", example = "구매한 제품 및 서비스")
   @Size(max = 100, message = "카테고리 명칭은 100자 이하여야 합니다")
-  private String categoryName; // 카테고리 명칭
+  private String scope3CategoryName; // 카테고리 명칭
 
   // ========================================================================
   // 유틸리티 메서드 (Utility Methods)
@@ -100,7 +100,7 @@ public class Scope3EmissionUpdateRequest {
     return majorCategory != null || subcategory != null || rawMaterial != null ||
         unit != null || emissionFactor != null || activityAmount != null ||
         totalEmission != null || reportingYear != null || reportingMonth != null ||
-            scope3CategoryNumber != null || categoryName != null;
+            scope3CategoryNumber != null || scope3CategoryName != null;
   }
 
   /**

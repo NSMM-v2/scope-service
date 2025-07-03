@@ -58,12 +58,13 @@ public class ProductCodeMapping {
     @Column(name = "headquarters_product_code", nullable = false, length = 50)
     private String headquartersProductCode;
 
+    @Column(name = "company_product", nullable = false)
+    private String companyProduct;
+
     @Column(name = "company_product_code", nullable = false, length = 50)
     private String companyProductCode;
 
-    @Column(name = "product_name", nullable = false)
-    private String productName;
-
+    //?? 이건 뭐지 ===============================================================================
     @Column(name = "product_description")
     private String productDescription;
 

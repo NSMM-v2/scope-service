@@ -25,9 +25,9 @@ public enum Scope3Category {
   private final int scope3CategoryNumber;
   private final String scope3CategoryName;
 
-  Scope3Category(int scope3CategoryNumber, String categoryName) {
+  Scope3Category(int scope3CategoryNumber, String scope3CategoryName) {
     this.scope3CategoryNumber = scope3CategoryNumber;
-    this.scope3CategoryName = categoryName;
+    this.scope3CategoryName = scope3CategoryName;
   }
 
   public int getScope3CategoryNumber() { return scope3CategoryNumber; }

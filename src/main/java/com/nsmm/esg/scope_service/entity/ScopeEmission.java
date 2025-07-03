@@ -40,10 +40,10 @@ public class ScopeEmission {
   // 프론트엔드 입력 구조와 1:1 매핑되는 주요 필드 (입력 순서 기준)
   // ========================================================================
 
-  @Column(name= "company_product", nullable = false)
+  @Column(name= "company_product", nullable = true)
   private String companyProduct; // 제품명
 
-  @Column(name= "company_product_code", nullable = false)
+  @Column(name= "company_product_code", nullable = true)
   private String companyProductCode; //제품 코드
 
   @Column(name = "major_category", nullable = false)
@@ -160,6 +160,8 @@ public class ScopeEmission {
         .treePath(this.treePath)
         .reportingYear(this.reportingYear)
         .reportingMonth(this.reportingMonth)
+        .companyProduct(this.companyProduct)
+        .companyProductCode(this.companyProductCode)
         .scopeType(this.scopeType)
         .scope1CategoryNumber(this.scope1CategoryNumber)
         .scope1CategoryName(this.scope1CategoryName)

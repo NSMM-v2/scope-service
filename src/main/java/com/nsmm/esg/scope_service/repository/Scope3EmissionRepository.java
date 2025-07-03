@@ -41,13 +41,13 @@ public interface Scope3EmissionRepository extends JpaRepository<ScopeEmission, L
         /**
          * 본사 ID와 카테고리 번호로 배출량 데이터 조회
          */
-        List<ScopeEmission> findByHeadquartersIdAndCategoryNumber(Long headquartersId, Integer categoryNumber);
+        List<ScopeEmission> findByHeadquartersIdAndScope3CategoryNumber(Long headquartersId, Integer scope3CategoryNumber);
 
         /**
          * 본사 ID와 연도/월/카테고리로 배출량 데이터 조회
          */
-        List<ScopeEmission> findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumber(
-                        Long headquartersId, Integer year, Integer month, Integer categoryNumber);
+        List<ScopeEmission> findByHeadquartersIdAndReportingYearAndReportingMonthAndScope3CategoryNumber(
+                        Long headquartersId, Integer year, Integer month, Integer scope3CategoryNumber);
 
         /**
          * 본사 ID와 연도/월로 배출량 데이터 조회
@@ -58,11 +58,11 @@ public interface Scope3EmissionRepository extends JpaRepository<ScopeEmission, L
         /**
          * 본사 ID 기반 중복 데이터 검사
          */
-        boolean existsByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+        boolean existsByHeadquartersIdAndReportingYearAndReportingMonthAndScope3CategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
                         Long headquartersId,
                         Integer reportingYear,
                         Integer reportingMonth,
-                        Integer categoryNumber,
+                        Integer scope3CategoryNumber,
                         String majorCategory,
                         String subcategory,
                         String rawMaterial);
@@ -70,11 +70,11 @@ public interface Scope3EmissionRepository extends JpaRepository<ScopeEmission, L
         /**
          * 본사 ID 기반 중복 데이터 조회 (수정용 - 특정 ID 제외)
          */
-        List<ScopeEmission> findByHeadquartersIdAndReportingYearAndReportingMonthAndCategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
+        List<ScopeEmission> findByHeadquartersIdAndReportingYearAndReportingMonthAndScope3CategoryNumberAndMajorCategoryAndSubcategoryAndRawMaterial(
                         Long headquartersId,
                         Integer reportingYear,
                         Integer reportingMonth,
-                        Integer categoryNumber,
+                        Integer scope3CategoryNumber,
                         String majorCategory,
                         String subcategory,
                         String rawMaterial);
@@ -97,14 +97,14 @@ public interface Scope3EmissionRepository extends JpaRepository<ScopeEmission, L
         /**
          * 협력사 ID, TreePath, 카테고리 번호로 배출량 데이터 조회
          */
-        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndCategoryNumber(
-                        Long partnerId, String treePath, Integer categoryNumber);
+        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndScope3CategoryNumber(
+                        Long partnerId, String treePath, Integer scope3CategoryNumber);
 
         /**
          * 협력사 ID, TreePath, 연도/월/카테고리로 배출량 데이터 조회
          */
-        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonthAndCategoryNumber(
-                        Long partnerId, String treePath, Integer year, Integer month, Integer categoryNumber);
+        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonthAndScope3CategoryNumber(
+                        Long partnerId, String treePath, Integer year, Integer month, Integer scope3CategoryNumber);
 
         /**
          * 협력사 ID, TreePath, 연도/월로 배출량 데이터 조회
