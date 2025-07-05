@@ -19,8 +19,8 @@
 
 ### 1.3 통합 집계 규칙
 
-- **Scope 3 카테고리 1**: 이동연소 + 고정연소 + Scope3-Cat1 + Scope3-Cat5
-- **Scope 3 카테고리 2**: 이동연소 + 고정연소 + Scope3-Cat2 + Scope3-Cat5
+- **Scope 3 카테고리 1**: 이동연소 + 고정연소 + Scope3-Cat1 + Scope3-Cat4
+- **Scope 3 카테고리 2**: 이동연소 + 고정연소 + Scope3-Cat2 + Scope3-Cat4
 
 ### 1.4 비정규화 설계 원칙
 

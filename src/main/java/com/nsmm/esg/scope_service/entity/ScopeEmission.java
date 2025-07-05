@@ -40,11 +40,11 @@ public class ScopeEmission {
   // 프론트엔드 입력 구조와 1:1 매핑되는 주요 필드 (입력 순서 기준)
   // ========================================================================
 
-  @Column(name= "company_product", nullable = true)
-  private String companyProduct; // 제품명
+  @Column(name = "company_product", nullable = true)
+  private String companyProduct; // 제품명 (Scope 1, 2에서만 사용)
 
-  @Column(name= "company_product_code", nullable = true)
-  private String companyProductCode; //제품 코드
+  @Column(name = "company_product_code", nullable = true)
+  private String companyProductCode; // 제품 코드 (Scope 1, 2에서만 사용)
 
   @Column(name = "major_category", nullable = false)
   private String majorCategory; // 대분류 (프론트엔드 category)
@@ -237,6 +237,198 @@ public class ScopeEmission {
    */
   public Scope3Category toScope3Category() {
     return Scope3Category.fromCategoryNumber(this.scope3CategoryNumber);
+  }
+
+  /**
+   * 제품 정보 유효성 검증
+   * Scope 1, 2인 경우에만 제품 정보 필수
+   */
+  @PrePersist
+  @PreUpdate
+  private void validateProductInfo() {
+    if (scopeType == ScopeType.SCOPE1 || scopeType == ScopeType.SCOPE2) {
+      // Scope 1, 2는 제품 정보가 있을 수 있음 (선택사항)
+      // null 허용하므로 별도 검증 불필요
+    } else if (scopeType == ScopeType.SCOPE3) {
+      // Scope 3는 제품 정보를 사용하지 않음
+      this.companyProduct = null;
+      this.companyProductCode = null;
+    }
+  }
+
+  /**
+   * 제품 정보 설정 (Scope 1, 2 전용)
+   */
+  public ScopeEmission withProductInfo(String companyProduct, String companyProductCode) {
+    if (this.scopeType == ScopeType.SCOPE3) {
+      throw new IllegalStateException("Scope 3에서는 제품 정보를 설정할 수 없습니다.");
+    }
+
+    return ScopeEmission.builder()
+        .id(this.id)
+        .headquartersId(this.headquartersId)
+        .partnerId(this.partnerId)
+        .treePath(this.treePath)
+        .reportingYear(this.reportingYear)
+        .reportingMonth(this.reportingMonth)
+        .scopeType(this.scopeType)
+        .scope1CategoryNumber(this.scope1CategoryNumber)
+        .scope1CategoryName(this.scope1CategoryName)
+        .scope2CategoryNumber(this.scope2CategoryNumber)
+        .scope2CategoryName(this.scope2CategoryName)
+        .scope3CategoryNumber(this.scope3CategoryNumber)
+        .scope3CategoryName(this.scope3CategoryName)
+        .companyProduct(companyProduct) // 제품명 설정
+        .companyProductCode(companyProductCode) // 제품 코드 설정
+        .majorCategory(this.majorCategory)
+        .subcategory(this.subcategory)
+        .rawMaterial(this.rawMaterial)
+        .activityAmount(this.activityAmount)
+        .unit(this.unit)
+        .emissionFactor(this.emissionFactor)
+        .totalEmission(this.totalEmission)
+        .isManualInput(this.isManualInput)
+        .createdAt(this.createdAt)
+        .build();
+  }
+
+  /**
+   * Scope 1 카테고리 정보 설정
+   */
+  public ScopeEmission withScope1Category(Integer number, String name) {
+    this.scope1CategoryNumber = number;
+    this.scope1CategoryName = name;
+    return this;
+  }
+
+  /**
+   * Scope 2 카테고리 정보 설정
+   */
+  public ScopeEmission withScope2Category(Integer number, String name) {
+    this.scope2CategoryNumber = number;
+    this.scope2CategoryName = name;
+    return this;
+  }
+
+  /**
+   * Scope 3 카테고리 정보 설정
+   */
+  public ScopeEmission withScope3Category(Integer number, String name) {
+    this.scope3CategoryNumber = number;
+    this.scope3CategoryName = name;
+    return this;
+  }
+
+  /**
+   * 제품명 설정
+   */
+  public void setCompanyProduct(String companyProduct) {
+    this.companyProduct = companyProduct;
+  }
+
+  /**
+   * 제품 코드 설정
+   */
+  public void setCompanyProductCode(String companyProductCode) {
+    this.companyProductCode = companyProductCode;
+  }
+
+  /**
+   * 대분류 설정
+   */
+  public void setMajorCategory(String majorCategory) {
+    this.majorCategory = majorCategory;
+  }
+
+  /**
+   * 소분류 설정
+   */
+  public void setSubcategory(String subcategory) {
+    this.subcategory = subcategory;
+  }
+
+  /**
+   * 원재료 설정
+   */
+  public void setRawMaterial(String rawMaterial) {
+    this.rawMaterial = rawMaterial;
+  }
+
+  /**
+   * 활동량 설정
+   */
+  public void setActivityAmount(BigDecimal activityAmount) {
+    this.activityAmount = activityAmount;
+  }
+
+  /**
+   * 단위 설정
+   */
+  public void setUnit(String unit) {
+    this.unit = unit;
+  }
+
+  /**
+   * 배출계수 설정
+   */
+  public void setEmissionFactor(BigDecimal emissionFactor) {
+    this.emissionFactor = emissionFactor;
+  }
+
+  /**
+   * 총 배출량 설정
+   */
+  public void setTotalEmission(BigDecimal totalEmission) {
+    this.totalEmission = totalEmission;
+  }
+
+  /**
+   * 수동입력 여부 설정
+   */
+  public void setIsManualInput(Boolean isManualInput) {
+    this.isManualInput = isManualInput;
+  }
+
+  /**
+   * Scope 1 카테고리 번호 설정
+   */
+  public void setScope1CategoryNumber(Integer number) {
+    this.scope1CategoryNumber = number;
+  }
+
+  /**
+   * Scope 1 카테고리명 설정
+   */
+  public void setScope1CategoryName(String name) {
+    this.scope1CategoryName = name;
+  }
+
+  /**
+   * Scope 2 카테고리 번호 설정
+   */
+  public void setScope2CategoryNumber(Integer number) {
+    this.scope2CategoryNumber = number;
+  }
+
+  /**
+   * Scope 2 카테고리명 설정
+   */
+  public void setScope2CategoryName(String name) {
+    this.scope2CategoryName = name;
+  }
+
+  /**
+   * Scope 3 카테고리 번호 설정
+   */
+  public void setScope3CategoryNumber(Integer number) {
+    this.scope3CategoryNumber = number;
+  }
+
+  /**
+   * Scope 3 카테고리명 설정
+   */
+  public void setScope3CategoryName(String name) {
+    this.scope3CategoryName = name;
   }
 
 }
