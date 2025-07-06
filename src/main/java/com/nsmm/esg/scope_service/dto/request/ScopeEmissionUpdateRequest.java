@@ -10,6 +10,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 
+import com.nsmm.esg.scope_service.enums.InputType;
+
 /**
  * 통합 Scope 배출량 업데이트 요청 DTO
  * 
@@ -28,6 +30,16 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Schema(description = "통합 Scope 배출량 업데이트 요청 DTO (모든 필드 부분 업데이트 지원)")
 public class ScopeEmissionUpdateRequest {
+
+  // ========================================================================
+  // 입력 모드 제어 (Input Mode Control)
+  // ========================================================================
+
+  @Schema(description = "입력 타입 (MANUAL/LCA)", example = "MANUAL")
+  private InputType inputType;
+
+  @Schema(description = "제품 코드 매핑 여부", example = "false")
+  private Boolean hasProductMapping;
 
   // ========================================================================
   // 제품 코드 매핑 정보 (Product Code Mapping)
@@ -77,15 +89,33 @@ public class ScopeEmissionUpdateRequest {
   private BigDecimal totalEmission; // 계산된 배출량
 
   // ========================================================================
-  // 입력 모드 (Input Mode)
+  // 보고 기간 정보 (Reporting Period)
   // ========================================================================
 
-  @Schema(description = "수동 입력 여부", example = "true")
-  private Boolean isManualInput; // 수동 입력 여부
+  @Schema(description = "보고 연도", example = "2024")
+  @NotNull(message = "보고 연도는 필수입니다")
+  @Min(value = 2020, message = "보고 연도는 2020년 이상이어야 합니다")
+  @Max(value = 2030, message = "보고 연도는 2030년 이하이어야 합니다")
+  private Integer reportingYear;
+
+  @Schema(description = "보고 월", example = "6")
+  @NotNull(message = "보고 월은 필수입니다")
+  @Min(value = 1, message = "보고 월은 1 이상이어야 합니다")
+  @Max(value = 12, message = "보고 월은 12 이하이어야 합니다")
+  private Integer reportingMonth;
 
   // ========================================================================
   // 유효성 검증 메서드 (Validation Methods)
   // ========================================================================
+
+  @AssertTrue(message = "제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다")
+  public boolean isProductCodeValid() {
+    if (Boolean.TRUE.equals(hasProductMapping)) {
+      return companyProductCode != null && !companyProductCode.isEmpty()
+          && productName != null && !productName.isEmpty();
+    }
+    return true;
+  }
 
   /**
    * 배출량 계산 검증 (값이 모두 있는 경우에만)
@@ -100,18 +130,6 @@ public class ScopeEmissionUpdateRequest {
     BigDecimal calculated = activityAmount.multiply(emissionFactor);
     return calculated.compareTo(totalEmission) == 0;
   }
-
-  @Schema(description = "보고 연도", example = "2024")
-  @NotNull(message = "보고 연도는 필수입니다")
-  @Min(value = 2020, message = "보고 연도는 2020년 이상이어야 합니다")
-  @Max(value = 2030, message = "보고 연도는 2030년 이하이어야 합니다")
-  private Integer reportingYear; // 보고 연도
-
-  @Schema(description = "보고 월", example = "6")
-  @NotNull(message = "보고 월은 필수입니다")
-  @Min(value = 1, message = "보고 월은 1 이상이어야 합니다")
-  @Max(value = 12, message = "보고 월은 12 이하이어야 합니다")
-  private Integer reportingMonth; // 보고 월
 
   /**
    * 보고 연도 반환

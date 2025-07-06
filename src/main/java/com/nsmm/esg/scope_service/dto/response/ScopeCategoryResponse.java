@@ -1,6 +1,9 @@
 package com.nsmm.esg.scope_service.dto.response;
 
-import com.nsmm.esg.scope_service.entity.*;
+import com.nsmm.esg.scope_service.enums.Scope1Category;
+import com.nsmm.esg.scope_service.enums.Scope2Category;
+import com.nsmm.esg.scope_service.enums.Scope3Category;
+import com.nsmm.esg.scope_service.enums.ScopeType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;

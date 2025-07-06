@@ -1,5 +1,6 @@
 package com.nsmm.esg.scope_service.entity;
 
+import com.nsmm.esg.scope_service.enums.*;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,8 +29,9 @@ import java.time.LocalDateTime;
         @Index(name = "idx_scope_category", columnList = "scope_type, scope1_category_number, scope2_category_number, scope3_category_number"),
         @Index(name = "idx_product_code", columnList = "headquarters_id, company_product_code, reporting_year, reporting_month"),
         @Index(name = "idx_tree_path", columnList = "tree_path"),
-        @Index(name = "idx_aggregation", columnList = "is_aggregated, aggregation_level"),
-        @Index(name = "idx_partner_scope", columnList = "partner_id, scope_type, reporting_year, reporting_month")
+        @Index(name = "idx_partner_scope", columnList = "partner_id, scope_type, reporting_year, reporting_month"),
+        @Index(name = "idx_scope_reporting", columnList = "scope_type, reporting_year, reporting_month"),
+        @Index(name = "idx_product_mapping", columnList = "has_product_mapping, company_product_code")
 })
 @Getter
 @Builder(toBuilder = true)
@@ -132,24 +134,17 @@ public class ScopeEmission {
     private BigDecimal totalEmission; // 총 배출량 (계산 결과)
 
     // ========================================================================
-    // 입력 모드 및 집계 제어 (Input Mode & Aggregation Control)
+    // 입력 모드 제어 (Input Mode Control)
     // ========================================================================
 
-    @Column(name = "is_manual_input", nullable = false)
+    @Column(name = "input_type", nullable = false)
+    @Enumerated(EnumType.STRING)
     @Builder.Default
-    private Boolean isManualInput = true; // 수동 입력 여부
+    private InputType inputType = InputType.MANUAL; // MANUAL, LCA
 
-    @Column(name = "is_direct_input", nullable = false)
+    @Column(name = "has_product_mapping", nullable = false)
     @Builder.Default
-    private Boolean isDirectInput = true; // 직접 입력 여부
-
-    @Column(name = "is_aggregated", nullable = false)
-    @Builder.Default
-    private Boolean isAggregated = false; // 집계 데이터 여부
-
-    @Column(name = "aggregation_level", nullable = false)
-    @Builder.Default
-    private Integer aggregationLevel = 0; // 집계 레벨
+    private Boolean hasProductMapping = false; // 제품 코드 매핑 여부
 
     // ========================================================================
     // 감사 필드 (Audit Fields)

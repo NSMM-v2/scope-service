@@ -1,4 +1,4 @@
-package com.nsmm.esg.scope_service.entity;
+package com.nsmm.esg.scope_service.enums;
 
 /**
  * Scope 2 카테고리 열거형 - 프론트엔드 list1-2 매핑

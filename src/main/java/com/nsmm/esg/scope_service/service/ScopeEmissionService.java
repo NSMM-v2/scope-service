@@ -3,14 +3,15 @@ package com.nsmm.esg.scope_service.service;
 import com.nsmm.esg.scope_service.dto.request.ScopeEmissionRequest;
 import com.nsmm.esg.scope_service.dto.request.ScopeEmissionUpdateRequest;
 import com.nsmm.esg.scope_service.dto.response.ScopeEmissionResponse;
-import com.nsmm.esg.scope_service.dto.response.ScopeCategoryResponse;
 import com.nsmm.esg.scope_service.entity.*;
+import com.nsmm.esg.scope_service.enums.Scope1Category;
+import com.nsmm.esg.scope_service.enums.Scope2Category;
+import com.nsmm.esg.scope_service.enums.Scope3Category;
+import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.repository.ScopeEmissionRepository;
 import com.nsmm.esg.scope_service.repository.ProductCodeMappingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,15 +81,11 @@ public class ScopeEmissionService {
       String partnerId,
       String treePath) {
 
-    log.info("Scope 배출량 데이터 생성 시작: scopeType={}, userType={}",
-        request.getScopeType(), userType);
-    log.debug("수신된 요청 데이터: {}", request);
-
     try {
-      // 1. 권한 검증
-      validateUserPermissions(userType, headquartersId, partnerId, treePath);
+      log.info("Scope 배출량 데이터 생성 시작: scopeType={}, userType={}",
+          request.getScopeType(), userType);
 
-      // 2. 본사/협력사 구분에 따른 ID 처리
+      // 1. 사용자 인증 및 권한 검증
       Long finalHeadquartersId;
       Long finalPartnerId = null;
 
@@ -102,20 +99,24 @@ public class ScopeEmissionService {
             finalHeadquartersId, finalPartnerId);
       }
 
-      // 3. 기본 필드 검증 (계산 검증 제거)
+      // 2. 기본 필드 검증
       validateBasicFields(request);
 
-      // 4. 중복 데이터 검증
-      validateDuplicateData(request, userType, finalHeadquartersId, finalPartnerId);
+      // 3. 중복 데이터 검증 - 중복이 있으면 null 반환
+      if (validateDuplicateData(request, userType, finalHeadquartersId, finalPartnerId)) {
+        log.warn("중복 데이터로 인해 생성이 중단되었습니다: scopeType={}, year={}, month={}",
+            request.getScopeType(), request.getReportingYear(), request.getReportingMonth());
+        return null; // 중복 데이터로 인해 생성 중단
+      }
 
-      // 5. 제품 코드 처리 (Scope 1, 2에서 선택적)
+      // 4. 제품 코드 처리 (Scope 1, 2에서 선택적)
       processProductCodeMapping(request);
 
-      // 6. 엔티티 생성
+      // 5. 엔티티 생성
       ScopeEmission emission = createScopeEmissionEntity(
           request, finalHeadquartersId, finalPartnerId, treePath);
 
-      // 7. 저장 및 응답
+      // 6. 저장 및 응답
       ScopeEmission savedEmission = scopeEmissionRepository.save(emission);
       log.info("Scope 배출량 데이터 생성 완료: id={}, scopeType={}, totalEmission={}",
           savedEmission.getId(), savedEmission.getScopeType(), savedEmission.getTotalEmission());
@@ -272,9 +273,14 @@ public class ScopeEmissionService {
     log.info("제품 코드별 배출량 조회: productCode={}, scopeType={}", productCode, scopeType);
     validateUserPermissions(userType, headquartersId, partnerId, treePath);
 
+    // Scope 3는 제품 코드 매핑이 불가능하므로 체크
+    if (scopeType == ScopeType.SCOPE3) {
+      throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 지원하지 않습니다");
+    }
+
     List<ScopeEmission> emissions;
     if ("HEADQUARTERS".equals(userType)) {
-      emissions = scopeEmissionRepository.findByHeadquartersIdAndCompanyProductCode(
+      emissions = scopeEmissionRepository.findByHeadquartersIdAndHasProductMappingTrueAndCompanyProductCode(
           Long.parseLong(headquartersId), productCode);
 
       // Scope 타입 필터링
@@ -284,8 +290,9 @@ public class ScopeEmissionService {
             .collect(Collectors.toList());
       }
     } else {
-      emissions = scopeEmissionRepository.findByPartnerIdAndTreePathStartingWithAndCompanyProductCode(
-          Long.parseLong(partnerId), treePath, productCode);
+      emissions = scopeEmissionRepository
+          .findByPartnerIdAndTreePathStartingWithAndHasProductMappingTrueAndCompanyProductCode(
+              Long.parseLong(partnerId), treePath, productCode);
 
       // Scope 타입 필터링
       if (scopeType != null) {
@@ -504,7 +511,28 @@ public class ScopeEmissionService {
       throw new IllegalArgumentException("총 배출량은 필수입니다");
     }
 
-    // Scope 3만 추가 필드 검증
+    if (request.getInputType() == null) {
+      throw new IllegalArgumentException("입력 타입은 필수입니다");
+    }
+
+    if (request.getHasProductMapping() == null) {
+      throw new IllegalArgumentException("제품 코드 매핑 여부는 필수입니다");
+    }
+
+    // 제품 코드 매핑 검증
+    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+      if (request.getScopeType() == ScopeType.SCOPE3) {
+        throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
+      }
+      if (request.getCompanyProductCode() == null || request.getCompanyProductCode().trim().isEmpty()) {
+        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드는 필수입니다");
+      }
+      if (request.getProductName() == null || request.getProductName().trim().isEmpty()) {
+        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품명은 필수입니다");
+      }
+    }
+
+    // Scope 3 추가 필드 검증
     if (request.getScopeType() == ScopeType.SCOPE3) {
       validateScope3RequiredFields(request);
     }
@@ -538,25 +566,35 @@ public class ScopeEmissionService {
    * @param headquartersId 본사 ID
    * @param partnerId      협력사 ID
    */
-  private void validateDuplicateData(
+
+  private boolean validateDuplicateData(
       ScopeEmissionRequest request,
       String userType,
       Long headquartersId,
       Long partnerId) {
 
+    // 현재 활성 카테고리 번호 가져오기
+    Integer categoryNumber = request.getActiveCategoryNumber();
+
     boolean exists;
 
     if ("HEADQUARTERS".equals(userType)) {
-      exists = scopeEmissionRepository.existsByHeadquartersIdAndScopeTypeAndReportingYearAndReportingMonth(
-          headquartersId, request.getScopeType(), request.getReportingYear(), request.getReportingMonth());
+      exists = scopeEmissionRepository
+          .existsByHeadquartersIdAndScopeTypeAndCategoryNumberAndReportingYearAndReportingMonth(
+              headquartersId, request.getScopeType(), categoryNumber, request.getReportingYear(),
+              request.getReportingMonth());
     } else {
-      exists = scopeEmissionRepository.existsByPartnerIdAndScopeTypeAndReportingYearAndReportingMonth(
-          partnerId, request.getScopeType(), request.getReportingYear(), request.getReportingMonth());
+      exists = scopeEmissionRepository.existsByPartnerIdAndScopeTypeAndCategoryNumberAndReportingYearAndReportingMonth(
+          partnerId, request.getScopeType(), categoryNumber, request.getReportingYear(), request.getReportingMonth());
     }
 
     if (exists) {
-      throw new IllegalArgumentException("동일한 조건의 배출량 데이터가 이미 존재합니다");
+      log.warn("동일한 조건의 배출량 데이터가 이미 존재합니다: scopeType={}, categoryNumber={}, year={}, month={}",
+          request.getScopeType(), categoryNumber, request.getReportingYear(), request.getReportingMonth());
+      return true; // 중복 데이터 존재
     }
+
+    return false; // 중복 데이터 없음
   }
 
   /**
@@ -605,22 +643,25 @@ public class ScopeEmissionService {
    * @param request 처리할 요청 데이터
    */
   private void processProductCodeMapping(ScopeEmissionRequest request) {
-    // Scope 1, 2에서 제품 코드가 제공된 경우에만 처리
-    if ((request.getScopeType() == ScopeType.SCOPE1 || request.getScopeType() == ScopeType.SCOPE2) &&
-        request.getProductCode() != null && !request.getProductCode().trim().isEmpty()) {
+    // 제품 코드 매핑이 설정된 경우에만 처리
+    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+      if (request.getScopeType() == ScopeType.SCOPE3) {
+        throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
+      }
+
+      if (request.getCompanyProductCode() == null || request.getCompanyProductCode().trim().isEmpty()) {
+        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드는 필수입니다");
+      }
 
       // 제품 코드 매핑 정보 조회
-      Optional<ProductCodeMapping> mapping = productCodeMappingRepository.findByProductCode(request.getProductCode());
+      Optional<ProductCodeMapping> mapping = productCodeMappingRepository
+          .findByProductCode(request.getCompanyProductCode());
 
-      if (mapping.isPresent()) {
-        // 매핑 정보가 있는 경우 제품명 자동 설정
-        if (request.getProductName() == null || request.getProductName().trim().isEmpty()) {
-          request.setProductName(mapping.get().getProductName());
-          log.debug("제품 코드 매핑을 통한 제품명 자동 설정: {} -> {}",
-              request.getProductCode(), request.getProductName());
-        }
-      } else {
-        log.warn("제품 코드 매핑 정보를 찾을 수 없습니다: {}", request.getProductCode());
+      if (mapping.isPresent() && (request.getProductName() == null || request.getProductName().trim().isEmpty())) {
+        // 매핑 정보가 있고 제품명이 없는 경우 자동 설정
+        request.setProductName(mapping.get().getProductName());
+        log.debug("제품 코드 매핑을 통한 제품명 자동 설정: {} -> {}",
+            request.getCompanyProductCode(), request.getProductName());
       }
     }
   }
@@ -653,34 +694,39 @@ public class ScopeEmissionService {
         .activityAmount(request.getActivityAmount())
         .unit(request.getUnit())
         .emissionFactor(request.getEmissionFactor())
-        .totalEmission(request.getTotalEmission()) // 프론트엔드 계산값 그대로 저장
-        .isManualInput(request.getIsManualInput() != null ? request.getIsManualInput() : false);
+        .totalEmission(request.getTotalEmission())
+        .inputType(request.getInputType())
+        .hasProductMapping(request.getHasProductMapping());
 
     // Scope 타입별 카테고리 설정
     switch (request.getScopeType()) {
       case SCOPE1:
-        if (request.getCategoryNumber() != null) {
-          builder.scope1CategoryNumber(request.getCategoryNumber())
-              .scope1CategoryName(request.getCategoryName());
+        if (request.getScope1CategoryNumber() != null) {
+          Scope1Category category = Scope1Category.fromCategoryNumber(request.getScope1CategoryNumber());
+          builder.scope1CategoryNumber(category.getCategoryNumber())
+              .scope1CategoryName(category.getCategoryName())
+              .scope1CategoryGroup(category.getGroupName());
         }
         break;
       case SCOPE2:
-        if (request.getCategoryNumber() != null) {
-          builder.scope2CategoryNumber(request.getCategoryNumber())
-              .scope2CategoryName(request.getCategoryName());
+        if (request.getScope2CategoryNumber() != null) {
+          Scope2Category category = Scope2Category.fromCategoryNumber(request.getScope2CategoryNumber());
+          builder.scope2CategoryNumber(category.getCategoryNumber())
+              .scope2CategoryName(category.getCategoryName());
         }
         break;
       case SCOPE3:
-        if (request.getCategoryNumber() != null) {
-          builder.scope3CategoryNumber(request.getCategoryNumber())
-              .scope3CategoryName(request.getCategoryName());
+        if (request.getScope3CategoryNumber() != null) {
+          Scope3Category category = Scope3Category.fromCategoryNumber(request.getScope3CategoryNumber());
+          builder.scope3CategoryNumber(category.getCategoryNumber())
+              .scope3CategoryName(category.getCategoryName());
         }
         break;
     }
 
-    // 제품 코드 설정 (Scope 1, 2에서 선택적)
-    if (request.getScopeType() == ScopeType.SCOPE1 || request.getScopeType() == ScopeType.SCOPE2) {
-      builder.companyProductCode(request.getProductCode())
+    // 제품 코드 매핑이 설정된 경우에만 제품 코드 정보 설정
+    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+      builder.companyProductCode(request.getCompanyProductCode())
           .productName(request.getProductName());
     }
 
@@ -761,7 +807,28 @@ public class ScopeEmissionService {
   private ScopeEmission performPartialUpdate(ScopeEmission existingEmission, ScopeEmissionUpdateRequest request) {
     ScopeEmission.ScopeEmissionBuilder builder = existingEmission.toBuilder();
 
-    // 비즈니스 데이터 필드 업데이트
+    // 입력 모드 업데이트
+    if (request.getInputType() != null) {
+      builder.inputType(request.getInputType());
+    }
+
+    // 제품 코드 매핑 업데이트
+    if (request.getHasProductMapping() != null) {
+      builder.hasProductMapping(request.getHasProductMapping());
+
+      // 제품 코드 매핑이 true인 경우 제품 코드 정보 필수 검증
+      if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+        if (existingEmission.getScopeType() == ScopeType.SCOPE3) {
+          throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
+        }
+        if ((request.getCompanyProductCode() == null || request.getCompanyProductCode().trim().isEmpty()) &&
+            (request.getProductName() == null || request.getProductName().trim().isEmpty())) {
+          throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다");
+        }
+      }
+    }
+
+    // 기존 필드 업데이트
     if (request.getMajorCategory() != null) {
       builder.majorCategory(request.getMajorCategory());
     }
@@ -770,12 +837,6 @@ public class ScopeEmissionService {
     }
     if (request.getRawMaterial() != null) {
       builder.rawMaterial(request.getRawMaterial());
-    }
-    if (request.getCompanyProductCode() != null) {
-      builder.companyProductCode(request.getCompanyProductCode());
-    }
-    if (request.getProductName() != null) {
-      builder.productName(request.getProductName());
     }
     if (request.getUnit() != null) {
       builder.unit(request.getUnit());
@@ -786,18 +847,22 @@ public class ScopeEmissionService {
     if (request.getActivityAmount() != null) {
       builder.activityAmount(request.getActivityAmount());
     }
-
-    // 메타데이터 필드 업데이트
-    if (request.getReportingYear() != null) {
-      builder.reportingYear(request.getReportingYear());
-    }
-    if (request.getReportingMonth() != null) {
-      builder.reportingMonth(request.getReportingMonth());
-    }
-
-    // 총 배출량 업데이트 (프론트엔드 계산값 그대로 저장)
     if (request.getTotalEmission() != null) {
       builder.totalEmission(request.getTotalEmission());
+    }
+
+    // 제품 코드 정보 업데이트
+    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+      if (request.getCompanyProductCode() != null) {
+        builder.companyProductCode(request.getCompanyProductCode());
+      }
+      if (request.getProductName() != null) {
+        builder.productName(request.getProductName());
+      }
+    } else {
+      // 제품 코드 매핑이 false인 경우 제품 코드 정보 제거
+      builder.companyProductCode(null)
+          .productName(null);
     }
 
     return builder.build();

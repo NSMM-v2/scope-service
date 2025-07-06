@@ -1,6 +1,7 @@
 package com.nsmm.esg.scope_service.dto.request;
 
-import com.nsmm.esg.scope_service.entity.ScopeType;
+import com.nsmm.esg.scope_service.enums.InputType;
+import com.nsmm.esg.scope_service.enums.ScopeType;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -108,25 +109,30 @@ public class ScopeEmissionRequest {
   @Digits(integer = 15, fraction = 6, message = "계산된 배출량은 정수 15자리, 소수점 6자리까지 가능합니다")
   private BigDecimal totalEmission; // 계산된 배출량
 
-  // ========================================================================
-  // 입력 모드 및 보고 기간 (Input Mode & Reporting Period)
-  // ========================================================================
-
-  @Schema(description = "수동 입력 여부", example = "true")
-  @Builder.Default
-  private Boolean isManualInput = true; // 수동 입력 여부
-
   @Schema(description = "보고 연도", example = "2024")
   @NotNull(message = "보고 연도는 필수입니다")
   @Min(value = 2020, message = "보고 연도는 2020년 이상이어야 합니다")
   @Max(value = 2030, message = "보고 연도는 2030년 이하이어야 합니다")
-  private Integer reportingYear; // 보고 연도
+  private Integer reportingYear;
 
   @Schema(description = "보고 월", example = "6")
   @NotNull(message = "보고 월은 필수입니다")
   @Min(value = 1, message = "보고 월은 1 이상이어야 합니다")
   @Max(value = 12, message = "보고 월은 12 이하이어야 합니다")
-  private Integer reportingMonth; // 보고 월
+  private Integer reportingMonth;
+
+  // ========================================================================
+  // 입력 모드 제어 (Input Mode Control)
+  // ========================================================================
+  @Schema(description = "입력 타입 (MANUAL/LCA)", example = "MANUAL")
+  @NotNull(message = "입력 타입은 필수입니다")
+  @Builder.Default
+  private InputType inputType = InputType.MANUAL;
+
+  @Schema(description = "제품 코드 매핑 여부", example = "false")
+  @NotNull(message = "제품 코드 매핑 여부는 필수입니다")
+  @Builder.Default
+  private Boolean hasProductMapping = false;
 
   // ========================================================================
   // 유효성 검증 메서드 (Validation Methods)
@@ -159,6 +165,23 @@ public class ScopeEmissionRequest {
 
     BigDecimal calculated = activityAmount.multiply(emissionFactor);
     return calculated.compareTo(totalEmission) == 0;
+  }
+
+  @AssertTrue(message = "Scope 3는 제품 코드 매핑을 설정할 수 없습니다")
+  public boolean isProductMappingValid() {
+    if (scopeType == ScopeType.SCOPE3 && hasProductMapping) {
+      return false;
+    }
+    return true;
+  }
+
+  @AssertTrue(message = "제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다")
+  public boolean isProductCodeValid() {
+    if (hasProductMapping) {
+      return companyProductCode != null && !companyProductCode.isEmpty()
+          && productName != null && !productName.isEmpty();
+    }
+    return true;
   }
 
   // ========================================================================
@@ -194,4 +217,5 @@ public class ScopeEmissionRequest {
   public String getCategoryName() {
     return majorCategory;
   }
+
 }

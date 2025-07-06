@@ -1,6 +1,7 @@
 package com.nsmm.esg.scope_service.dto.response;
 
-import com.nsmm.esg.scope_service.entity.ScopeType;
+import com.nsmm.esg.scope_service.enums.InputType;
+import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.entity.ScopeEmission;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -100,8 +101,11 @@ public class ScopeEmissionResponse {
   // 입력 모드 및 보고 기간 (Input Mode & Reporting Period)
   // ========================================================================
 
-  @Schema(description = "수동 입력 여부", example = "true")
-  private Boolean isManualInput; // 수동 입력 여부
+  @Schema(description = "입력 타입", example = "MANUAL")
+  private InputType inputType;
+
+  @Schema(description = "제품 코드 매핑 여부", example = "false")
+  private Boolean hasProductMapping;
 
   @Schema(description = "보고 연도", example = "2024")
   private Integer reportingYear; // 보고 연도
@@ -179,7 +183,8 @@ public class ScopeEmissionResponse {
         .unit(emission.getUnit())
         .emissionFactor(emission.getEmissionFactor())
         .totalEmission(emission.getTotalEmission())
-        .isManualInput(emission.getIsManualInput())
+        .inputType(emission.getInputType())
+        .hasProductMapping(emission.getHasProductMapping())
         .reportingYear(emission.getReportingYear())
         .reportingMonth(emission.getReportingMonth())
         .createdAt(emission.getCreatedAt())

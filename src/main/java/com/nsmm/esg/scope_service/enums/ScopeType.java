@@ -1,4 +1,4 @@
-package com.nsmm.esg.scope_service.entity;
+package com.nsmm.esg.scope_service.enums;
 
 public enum ScopeType {
     SCOPE1("직접 배출"),
