@@ -65,6 +65,7 @@ public class ScopeEmissionService {
    * - Scope 1, 2: 제품 코드/제품명 선택적 처리
    * - Scope 3: 모든 필드 필수 (기존 로직 유지)
    * - 프론트엔드 계산값 그대로 저장
+   * - 중복 검증 제거로 자유로운 데이터 입력 허용
    * 
    * @param request        생성 요청 데이터
    * @param userType       사용자 타입 (HEADQUARTERS | PARTNER)
@@ -102,21 +103,14 @@ public class ScopeEmissionService {
       // 2. 기본 필드 검증
       validateBasicFields(request);
 
-      // 3. 중복 데이터 검증 - 중복이 있으면 null 반환
-      if (validateDuplicateData(request, userType, finalHeadquartersId, finalPartnerId)) {
-        log.warn("중복 데이터로 인해 생성이 중단되었습니다: scopeType={}, year={}, month={}",
-            request.getScopeType(), request.getReportingYear(), request.getReportingMonth());
-        return null; // 중복 데이터로 인해 생성 중단
-      }
-
-      // 4. 제품 코드 처리 (Scope 1, 2에서 선택적)
+      // 3. 제품 코드 처리 (Scope 1, 2에서 선택적)
       processProductCodeMapping(request);
 
-      // 5. 엔티티 생성
+      // 4. 엔티티 생성
       ScopeEmission emission = createScopeEmissionEntity(
           request, finalHeadquartersId, finalPartnerId, treePath);
 
-      // 6. 저장 및 응답
+      // 5. 저장 및 응답
       ScopeEmission savedEmission = scopeEmissionRepository.save(emission);
       log.info("Scope 배출량 데이터 생성 완료: id={}, scopeType={}, totalEmission={}",
           savedEmission.getId(), savedEmission.getScopeType(), savedEmission.getTotalEmission());
@@ -378,14 +372,14 @@ public class ScopeEmissionService {
   // ============================================================================
 
   /**
-   * 통합 Scope 배출량 데이터 수정
+   * Scope 배출량 데이터 수정
    * 
    * 특징:
-   * - 부분 업데이트 지원 (null이 아닌 필드만 수정)
-   * - 권한 기반 수정 제어
-   * - 프론트엔드 계산값 그대로 저장
+   * - 부분 업데이트 지원 (null이 아닌 필드만 업데이트)
+   * - 권한 검증 포함 (본사/협력사 구분)
+   * - 중복 검증 제거로 자유로운 데이터 수정 허용
    * 
-   * @param id             수정할 데이터 ID
+   * @param id             수정할 배출량 데이터 ID
    * @param request        수정 요청 데이터
    * @param userType       사용자 타입
    * @param headquartersId 본사 ID
@@ -402,36 +396,21 @@ public class ScopeEmissionService {
       String partnerId,
       String treePath) {
 
-    log.info("Scope 배출량 데이터 업데이트 시작: id={}, userType={}", id, userType);
+    log.info("Scope 배출량 데이터 수정: id={}, userType={}", id, userType);
 
-    // 1. 업데이트할 필드가 있는지 확인
-    if (request.getMajorCategory() == null && request.getSubcategory() == null && request.getRawMaterial() == null &&
-        request.getCompanyProductCode() == null && request.getProductName() == null && request.getUnit() == null &&
-        request.getEmissionFactor() == null && request.getActivityAmount() == null &&
-        request.getReportingYear() == null && request.getReportingMonth() == null &&
-        request.getTotalEmission() == null) {
-      throw new IllegalArgumentException("업데이트할 필드가 없습니다");
-    }
-
-    // 2. 기존 데이터 조회
+    // 1. 기존 데이터 조회
     ScopeEmission existingEmission = scopeEmissionRepository.findById(id)
         .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + id));
 
-    // 3. 권한 검증
+    // 2. 수정 권한 검증
     validateUpdatePermissions(existingEmission, userType, headquartersId, partnerId, treePath);
 
-    // 4. 중복 데이터 검증 (수정용 - 자기 자신 제외)
-    if (request.getReportingYear() != null || request.getReportingMonth() != null) {
-      validateDuplicateDataForUpdate(request, existingEmission, userType, id);
-    }
-
-    // 5. 부분 업데이트 수행
+    // 3. 부분 업데이트 수행
     ScopeEmission updatedEmission = performPartialUpdate(existingEmission, request);
 
-    // 6. 저장 및 응답
+    // 4. 저장 및 응답
     ScopeEmission savedEmission = scopeEmissionRepository.save(updatedEmission);
-    log.info("Scope 배출량 데이터 업데이트 완료: id={}, totalEmission={}",
-        savedEmission.getId(), savedEmission.getTotalEmission());
+    log.info("Scope 배출량 데이터 수정 완료: id={}", savedEmission.getId());
 
     return ScopeEmissionResponse.from(savedEmission);
   }
@@ -555,85 +534,6 @@ public class ScopeEmissionService {
     }
     if (request.getRawMaterial() == null || request.getRawMaterial().trim().isEmpty()) {
       throw new IllegalArgumentException("Scope 3 원재료는 필수입니다");
-    }
-  }
-
-  /**
-   * 중복 데이터 검증 (생성용)
-   * 
-   * @param request        검증할 요청 데이터
-   * @param userType       사용자 타입
-   * @param headquartersId 본사 ID
-   * @param partnerId      협력사 ID
-   */
-
-  private boolean validateDuplicateData(
-      ScopeEmissionRequest request,
-      String userType,
-      Long headquartersId,
-      Long partnerId) {
-
-    // 현재 활성 카테고리 번호 가져오기
-    Integer categoryNumber = request.getActiveCategoryNumber();
-
-    boolean exists;
-
-    if ("HEADQUARTERS".equals(userType)) {
-      exists = scopeEmissionRepository
-          .existsByHeadquartersIdAndScopeTypeAndCategoryNumberAndReportingYearAndReportingMonth(
-              headquartersId, request.getScopeType(), categoryNumber, request.getReportingYear(),
-              request.getReportingMonth());
-    } else {
-      exists = scopeEmissionRepository.existsByPartnerIdAndScopeTypeAndCategoryNumberAndReportingYearAndReportingMonth(
-          partnerId, request.getScopeType(), categoryNumber, request.getReportingYear(), request.getReportingMonth());
-    }
-
-    if (exists) {
-      log.warn("동일한 조건의 배출량 데이터가 이미 존재합니다: scopeType={}, categoryNumber={}, year={}, month={}",
-          request.getScopeType(), categoryNumber, request.getReportingYear(), request.getReportingMonth());
-      return true; // 중복 데이터 존재
-    }
-
-    return false; // 중복 데이터 없음
-  }
-
-  /**
-   * 중복 데이터 검증 (수정용)
-   * 
-   * @param request          검증할 요청 데이터
-   * @param existingEmission 기존 배출량 데이터
-   * @param userType         사용자 타입
-   * @param excludeId        제외할 데이터 ID
-   */
-  private void validateDuplicateDataForUpdate(
-      ScopeEmissionUpdateRequest request,
-      ScopeEmission existingEmission,
-      String userType,
-      Long excludeId) {
-
-    // 핵심 필드가 변경된 경우에만 중복 검증 수행
-    Integer finalYear = request.getReportingYear() != null ? request.getReportingYear()
-        : existingEmission.getReportingYear();
-    Integer finalMonth = request.getReportingMonth() != null ? request.getReportingMonth()
-        : existingEmission.getReportingMonth();
-
-    List<ScopeEmission> existingData;
-
-    if ("HEADQUARTERS".equals(userType)) {
-      existingData = scopeEmissionRepository.findByHeadquartersIdAndScopeTypeAndReportingYearAndReportingMonth(
-          existingEmission.getHeadquartersId(), existingEmission.getScopeType(), finalYear, finalMonth);
-    } else {
-      existingData = scopeEmissionRepository.findByPartnerIdAndScopeTypeAndReportingYearAndReportingMonth(
-          existingEmission.getPartnerId(), existingEmission.getScopeType(), finalYear, finalMonth);
-    }
-
-    // 자기 자신을 제외하고 중복 검증
-    existingData = existingData.stream()
-        .filter(emission -> !emission.getId().equals(excludeId))
-        .collect(Collectors.toList());
-
-    if (!existingData.isEmpty()) {
-      throw new IllegalArgumentException("동일한 조건의 배출량 데이터가 이미 존재합니다");
     }
   }
 
