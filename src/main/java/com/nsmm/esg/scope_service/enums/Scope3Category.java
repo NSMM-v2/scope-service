@@ -1,23 +1,14 @@
-package com.nsmm.esg.scope_service.entity;
+package com.nsmm.esg.scope_service.enums;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * Scope 3 카테고리 열거형
- * 
- * GHG 프로토콜 기준 15개 Scope 3 카테고리 정의:
- * - 업스트림 카테고리 (1-8): 기업 운영 이전 단계 배출
- * - 다운스트림 카테고리 (9-15): 기업 운영 이후 단계 배출
- * 
- * 각 카테고리는 고유 번호와 한국어 명칭을 포함
- * 
- * @author ESG Project Team
- * @version 1.0
+ * Scope 3 카테고리 열거형 - 프론트엔드 list1-15 매핑
  */
 public enum Scope3Category {
-
-  // ========================================================================
-  // 업스트림 카테고리 (Upstream Categories) 1-8
-  // ========================================================================
-
+  // 업스트림 카테고리 (1-8)
   PURCHASED_GOODS_SERVICES(1, "구매한 상품 및 서비스"),
   CAPITAL_GOODS(2, "자본재"),
   FUEL_ENERGY_ACTIVITIES(3, "연료 및 에너지 관련 활동"),
@@ -27,10 +18,7 @@ public enum Scope3Category {
   EMPLOYEE_COMMUTING(7, "직원 통근"),
   UPSTREAM_LEASED_ASSETS(8, "업스트림 임대 자산"),
 
-  // ========================================================================
-  // 다운스트림 카테고리 (Downstream Categories) 9-15
-  // ========================================================================
-
+  // 다운스트림 카테고리 (9-15)
   DOWNSTREAM_TRANSPORTATION(9, "다운스트림 운송 및 유통"),
   PROCESSING_SOLD_PRODUCTS(10, "판매 후 처리"),
   USE_SOLD_PRODUCTS(11, "제품 사용"),
@@ -39,34 +27,22 @@ public enum Scope3Category {
   FRANCHISES(14, "프랜차이즈"),
   INVESTMENTS(15, "투자");
 
-  private final int categoryNumber; // 카테고리 번호 (1-15)
-  private final String categoryName; // 카테고리 한국어 명칭
+  private final int categoryNumber;
+  private final String categoryName;
 
-  /**
-   * Scope 3 카테고리 생성자
-   */
   Scope3Category(int categoryNumber, String categoryName) {
     this.categoryNumber = categoryNumber;
     this.categoryName = categoryName;
   }
 
-  /**
-   * 카테고리 번호 반환
-   */
   public int getCategoryNumber() {
     return categoryNumber;
   }
 
-  /**
-   * 카테고리 한국어 명칭 반환
-   */
   public String getCategoryName() {
     return categoryName;
   }
 
-  /**
-   * 카테고리 번호로 카테고리 조회
-   */
   public static Scope3Category fromCategoryNumber(int categoryNumber) {
     for (Scope3Category category : values()) {
       if (category.getCategoryNumber() == categoryNumber) {
@@ -74,6 +50,37 @@ public enum Scope3Category {
       }
     }
     throw new IllegalArgumentException("유효하지 않은 Scope 3 카테고리 번호: " + categoryNumber);
+  }
+
+  /**
+   * 프론트엔드 list 키에서 카테고리 번호 변환
+   */
+  public static int getNumberFromListKey(String listKey) {
+    return switch (listKey) {
+      case "list1" -> 1;
+      case "list2" -> 2;
+      case "list3" -> 3;
+      case "list4" -> 4;
+      case "list5" -> 5;
+      case "list6" -> 6;
+      case "list7" -> 7;
+      case "list8" -> 8;
+      case "list9" -> 9;
+      case "list10" -> 10;
+      case "list11" -> 11;
+      case "list12" -> 12;
+      case "list13" -> 13;
+      case "list14" -> 14;
+      case "list15" -> 15;
+      default -> throw new IllegalArgumentException("유효하지 않은 list 키: " + listKey);
+    };
+  }
+
+  /**
+   * 카테고리 번호에서 프론트엔드 list 키 변환
+   */
+  public static String getListKeyFromNumber(int categoryNumber) {
+    return "list" + categoryNumber;
   }
 
   /**
@@ -88,5 +95,23 @@ public enum Scope3Category {
    */
   public boolean isDownstream() {
     return categoryNumber >= 9 && categoryNumber <= 15;
+  }
+
+  /**
+   * 업스트림 카테고리 목록 조회
+   */
+  public static List<Scope3Category> getUpstreamCategories() {
+    return Arrays.stream(values())
+        .filter(Scope3Category::isUpstream)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * 다운스트림 카테고리 목록 조회
+   */
+  public static List<Scope3Category> getDownstreamCategories() {
+    return Arrays.stream(values())
+        .filter(Scope3Category::isDownstream)
+        .collect(Collectors.toList());
   }
 }
