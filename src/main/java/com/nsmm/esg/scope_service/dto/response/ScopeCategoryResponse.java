@@ -22,8 +22,6 @@ import java.util.Arrays;
  * - 그룹별 분류 지원
  * - 기존 Scope3CategoryResponse와 호환
  * 
- * @author ESG Project Team
- * @version 1.0
  */
 @Getter
 @Builder

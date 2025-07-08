@@ -21,8 +21,6 @@ import java.time.LocalDateTime;
  * - 모든 Scope 타입 지원
  * - 기존 Scope3EmissionResponse와 호환
  * 
- * @author ESG Project Team
- * @version 1.0
  */
 @Getter
 @Builder
