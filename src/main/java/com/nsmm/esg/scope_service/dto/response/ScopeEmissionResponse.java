@@ -149,20 +149,6 @@ public class ScopeEmissionResponse {
     };
   }
 
-  /**
-   * 기존 Scope3EmissionResponse와의 호환성을 위한 메서드
-   */
-  public Integer getCategoryNumber() {
-    return getActiveCategoryNumber();
-  }
-
-  /**
-   * 기존 Scope3EmissionResponse와의 호환성을 위한 메서드
-   */
-  public String getCategoryName() {
-    return getActiveCategoryName();
-  }
-
   public static ScopeEmissionResponse from(ScopeEmission emission) {
     return ScopeEmissionResponse.builder()
         .id(emission.getId())

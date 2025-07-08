@@ -104,52 +104,5 @@ public class ScopeEmissionUpdateRequest {
   @Max(value = 12, message = "보고 월은 12 이하이어야 합니다")
   private Integer reportingMonth;
 
-  // ========================================================================
-  // 유효성 검증 메서드 (Validation Methods)
-  // ========================================================================
 
-  @AssertTrue(message = "제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다")
-  public boolean isProductCodeValid() {
-    if (Boolean.TRUE.equals(hasProductMapping)) {
-      return companyProductCode != null && !companyProductCode.isEmpty()
-          && productName != null && !productName.isEmpty();
-    }
-    return true;
-  }
-
-  /**
-   * 배출량 계산 검증 (값이 모두 있는 경우에만)
-   */
-  @AssertTrue(message = "배출량 계산이 올바르지 않습니다 (수량 × 배출계수 = 총 배출량)")
-  public boolean isEmissionCalculationValid() {
-    // 모든 값이 있는 경우에만 검증
-    if (activityAmount == null || emissionFactor == null || totalEmission == null) {
-      return true; // 부분 업데이트이므로 null은 허용
-    }
-
-    BigDecimal calculated = activityAmount.multiply(emissionFactor);
-    return calculated.compareTo(totalEmission) == 0;
-  }
-
-  /**
-   * 보고 연도 반환
-   */
-  public Integer getReportingYear() {
-    return reportingYear;
-  }
-
-  /**
-   * 보고 월 반환
-   */
-  public Integer getReportingMonth() {
-    return reportingMonth;
-  }
-
-  /**
-   * 카테고리명 반환
-   * 기존 Scope3EmissionUpdateRequest와의 호환성을 위한 메서드
-   */
-  public String getCategoryName() {
-    return majorCategory;
-  }
 }

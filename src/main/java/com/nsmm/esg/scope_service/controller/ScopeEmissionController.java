@@ -52,9 +52,7 @@ public class ScopeEmissionController {
 
   private final ScopeEmissionService scopeEmissionService;
 
-  /**
-   * 헤더 정보 로깅 유틸리티 메서드
-   */
+  // 헤더 정보 로깅 유틸리티 메서드
   private void logHeaders(String methodName, String userType, String headquartersId, String partnerId,
       String treePath) {
     log.debug("=== {} 요청 헤더 정보 ===", methodName);
@@ -64,9 +62,7 @@ public class ScopeEmissionController {
     log.debug("X-TREE-PATH: {}", treePath);
   }
 
-  /**
-   * 제품 코드 유효성 검증 (Scope 1, 2는 선택적)
-   */
+  // 제품 코드 유효성 검증 (Scope 1, 2는 선택적)
   private void validateProductCodeForScope(ScopeEmissionRequest request) {
     if (request.getScopeType() == ScopeType.SCOPE3 && request.getHasProductMapping()) {
       log.warn("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
@@ -89,9 +85,7 @@ public class ScopeEmissionController {
   // 카테고리 조회 API (Category APIs)
   // ========================================================================
 
-  /**
-   * 모든 Scope 타입의 카테고리 목록 조회
-   */
+  // 모든 Scope 타입의 카테고리 목록 조회
   @Operation(summary = "모든 Scope 카테고리 조회", description = "Scope 1, 2, 3의 모든 카테고리 목록을 조회합니다.")
   @GetMapping("/categories")
   public ResponseEntity<ApiResponse<Map<String, List<ScopeCategoryResponse>>>> getAllScopeCategories() {
@@ -111,9 +105,7 @@ public class ScopeEmissionController {
     }
   }
 
-  /**
-   * 특정 Scope 타입의 카테고리 목록 조회
-   */
+  // 특정 Scope 타입의 카테고리 목록 조회
   @Operation(summary = "특정 Scope 카테고리 조회", description = "지정된 Scope 타입의 카테고리 목록을 조회합니다.")
   @GetMapping("/categories/{scopeType}")
   public ResponseEntity<ApiResponse<List<ScopeCategoryResponse>>> getCategoriesByScope(
@@ -136,9 +128,7 @@ public class ScopeEmissionController {
   // 생성 API (Creation APIs)
   // ========================================================================
 
-  /**
-   * 통합 Scope 배출량 데이터 생성
-   */
+  // 통합 Scope 배출량 데이터 생성
   @Operation(summary = "Scope 배출량 데이터 생성", description = "Scope 1, 2, 3 배출량 데이터를 생성합니다. 제품 코드 매핑은 Scope 1, 2만 가능합니다.")
   @PostMapping("/emissions")
   public ResponseEntity<ApiResponse<ScopeEmissionResponse>> createScopeEmission(
@@ -205,9 +195,7 @@ public class ScopeEmissionController {
   // 조회 API (Query APIs)
   // ========================================================================
 
-  /**
-   * 특정 배출량 데이터 조회
-   */
+  // 특정 배출량 데이터 조회
   @Operation(summary = "Scope 배출량 단건 조회", description = "ID로 Scope 배출량 데이터를 조회합니다.")
   @GetMapping("/emissions/{id}")
   public ResponseEntity<ApiResponse<ScopeEmissionResponse>> getScopeEmissionById(
@@ -241,9 +229,7 @@ public class ScopeEmissionController {
     }
   }
 
-  /**
-   * Scope 타입별 배출량 데이터 조회
-   */
+  // Scope 타입별 배출량 데이터 조회
   @Operation(summary = "Scope 타입별 배출량 조회", description = "특정 Scope 타입의 배출량 데이터를 조회합니다.")
   @GetMapping("/emissions/scope/{scopeType}")
   public ResponseEntity<ApiResponse<List<ScopeEmissionResponse>>> getEmissionsByScope(
@@ -280,9 +266,7 @@ public class ScopeEmissionController {
     }
   }
 
-  /**
-   * 연도/월별 배출량 데이터 조회 (모든 Scope)
-   */
+  // 연도/월별 배출량 데이터 조회 (모든 Scope)
   @Operation(summary = "연도/월별 전체 배출량 조회", description = "선택된 연도/월의 모든 Scope 배출량 데이터를 조회합니다.")
   @GetMapping("/emissions/year/{year}/month/{month}")
   public ResponseEntity<ApiResponse<List<ScopeEmissionResponse>>> getEmissionsByYearAndMonth(
@@ -318,9 +302,7 @@ public class ScopeEmissionController {
     }
   }
 
-  /**
-   * 연도/월/카테고리별 배출량 데이터 조회
-   */
+  // 연도/월/카테고리별 배출량 데이터 조회
   @Operation(summary = "연도/월/카테고리별 배출량 조회", description = "선택된 연도/월의 특정 카테고리 배출량 데이터를 조회합니다.")
   @GetMapping("/emissions/year/{year}/month/{month}/scope/{scopeType}/category/{categoryNumber}")
   public ResponseEntity<ApiResponse<List<ScopeEmissionResponse>>> getEmissionsByYearAndMonthAndCategory(
@@ -354,9 +336,7 @@ public class ScopeEmissionController {
     }
   }
 
-  /**
-   * 제품 코드별 배출량 데이터 조회 (Scope 1, 2, 3 모두 지원)
-   */
+  // 제품 코드별 배출량 데이터 조회 (Scope 1, 2, 3 모두 지원)
   @Operation(summary = "제품 코드별 배출량 조회", description = "제품 코드로 배출량 데이터를 조회합니다. Scope 1, 2는 선택적 제품 코드 지원.")
   @GetMapping("/emissions/product/{productCode}")
   public ResponseEntity<ApiResponse<List<ScopeEmissionResponse>>> getEmissionsByProductCode(
@@ -395,9 +375,7 @@ public class ScopeEmissionController {
   // 집계 및 요약 API (Summary & Aggregation APIs)
   // ========================================================================
 
-  /**
-   * 연도/월별 Scope 타입별 총계 조회
-   */
+  // 연도/월별 Scope 타입별 총계 조회
   @Operation(summary = "연도/월별 Scope 타입별 총계 조회", description = "선택된 연도/월의 각 Scope 타입별 총 배출량을 조회합니다.")
   @GetMapping("/emissions/summary/year/{year}/month/{month}")
   public ResponseEntity<ApiResponse<Map<String, BigDecimal>>> getScopeSummaryByYearAndMonth(
@@ -427,9 +405,7 @@ public class ScopeEmissionController {
     }
   }
 
-  /**
-   * 특정 Scope의 카테고리별 총계 조회
-   */
+  // 특정 Scope의 카테고리별 총계 조회
   @Operation(summary = "Scope 카테고리별 총계 조회", description = "특정 Scope의 카테고리별 총 배출량을 조회합니다.")
   @GetMapping("/emissions/summary/scope/{scopeType}/year/{year}/month/{month}")
   public ResponseEntity<ApiResponse<Map<Integer, BigDecimal>>> getCategorySummaryByScope(
@@ -465,9 +441,7 @@ public class ScopeEmissionController {
   // 업데이트 API (Update APIs)
   // ========================================================================
 
-  /**
-   * Scope 배출량 데이터 수정
-   */
+  // Scope 배출량 데이터 수정
   @Operation(summary = "Scope 배출량 데이터 수정", description = "ID로 Scope 배출량 데이터를 수정합니다. 제품 코드 매핑은 Scope 1, 2만 가능합니다.")
   @PutMapping("/emissions/{id}")
   public ResponseEntity<ApiResponse<ScopeEmissionResponse>> updateScopeEmission(
@@ -519,9 +493,7 @@ public class ScopeEmissionController {
   // 삭제 API (Delete APIs)
   // ========================================================================
 
-  /**
-   * Scope 배출량 데이터 삭제
-   */
+  // Scope 배출량 데이터 삭제
   @Operation(summary = "Scope 배출량 데이터 삭제", description = "ID로 Scope 배출량 데이터를 삭제합니다.")
   @DeleteMapping("/emissions/{id}")
   public ResponseEntity<ApiResponse<String>> deleteScopeEmission(

@@ -134,55 +134,7 @@ public class ScopeEmissionRequest {
   @Builder.Default
   private Boolean hasProductMapping = false;
 
-  // ========================================================================
-  // 유효성 검증 메서드 (Validation Methods)
-  // ========================================================================
 
-  /**
-   * 카테고리 번호 유효성 검증
-   */
-  @AssertTrue(message = "Scope 타입에 맞는 카테고리 번호를 입력해주세요")
-  public boolean isCategoryNumberValid() {
-    if (scopeType == null) {
-      return false;
-    }
-
-    return switch (scopeType) {
-      case SCOPE1 -> scope1CategoryNumber != null && scope2CategoryNumber == null && scope3CategoryNumber == null;
-      case SCOPE2 -> scope2CategoryNumber != null && scope1CategoryNumber == null && scope3CategoryNumber == null;
-      case SCOPE3 -> scope3CategoryNumber != null && scope1CategoryNumber == null && scope2CategoryNumber == null;
-    };
-  }
-
-  /**
-   * 배출량 계산 검증
-   */
-  @AssertTrue(message = "배출량 계산이 올바르지 않습니다 (수량 × 배출계수 = 총 배출량)")
-  public boolean isEmissionCalculationValid() {
-    if (activityAmount == null || emissionFactor == null || totalEmission == null) {
-      return true; // null 체크는 @NotNull에서 처리
-    }
-
-    BigDecimal calculated = activityAmount.multiply(emissionFactor);
-    return calculated.compareTo(totalEmission) == 0;
-  }
-
-  @AssertTrue(message = "Scope 3는 제품 코드 매핑을 설정할 수 없습니다")
-  public boolean isProductMappingValid() {
-    if (scopeType == ScopeType.SCOPE3 && hasProductMapping) {
-      return false;
-    }
-    return true;
-  }
-
-  @AssertTrue(message = "제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다")
-  public boolean isProductCodeValid() {
-    if (hasProductMapping) {
-      return companyProductCode != null && !companyProductCode.isEmpty()
-          && productName != null && !productName.isEmpty();
-    }
-    return true;
-  }
 
   // ========================================================================
   // 편의 메서드 (Convenience Methods)
@@ -200,22 +152,11 @@ public class ScopeEmissionRequest {
   }
 
   /**
-   * 기존 Scope3EmissionRequest와의 호환성을 위한 메서드
+   * 기존 ScopeEmissionRequest와의 호환성을 위한 메서드
    */
   public Integer getCategoryNumber() {
     return getActiveCategoryNumber();
   }
 
-  public String getProductCode() {
-    return companyProductCode;
-  }
-
-  /**
-   * 카테고리명 반환
-   * 기존 Scope3EmissionRequest와의 호환성을 위한 메서드
-   */
-  public String getCategoryName() {
-    return majorCategory;
-  }
 
 }
