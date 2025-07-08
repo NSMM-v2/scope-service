@@ -40,10 +40,10 @@ public class ScopeEmissionRequest {
   @NotNull(message = "Scope 타입은 필수입니다")
   private ScopeType scopeType; // SCOPE1, SCOPE2, SCOPE3
 
-  @Schema(description = "Scope 1 카테고리 번호 (1-10)", example = "4")
+  @Schema(description = "Scope 1 카테고리 번호 (1-11)", example = "4")
   @Min(value = 1, message = "Scope 1 카테고리 번호는 1 이상이어야 합니다")
-  @Max(value = 10, message = "Scope 1 카테고리 번호는 10 이하여야 합니다")
-  private Integer scope1CategoryNumber; // 1-10 (list1-10)
+  @Max(value = 11, message = "Scope 1 카테고리 번호는 11 이하여야 합니다")
+  private Integer scope1CategoryNumber; // 1-11 (list1-11)
 
   @Schema(description = "Scope 2 카테고리 번호 (1-2)", example = "1")
   @Min(value = 1, message = "Scope 2 카테고리 번호는 1 이상이어야 합니다")
@@ -134,8 +134,6 @@ public class ScopeEmissionRequest {
   @Builder.Default
   private Boolean hasProductMapping = false;
 
-
-
   // ========================================================================
   // 편의 메서드 (Convenience Methods)
   // ========================================================================
@@ -157,6 +155,5 @@ public class ScopeEmissionRequest {
   public Integer getCategoryNumber() {
     return getActiveCategoryNumber();
   }
-
 
 }

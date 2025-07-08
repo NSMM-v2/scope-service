@@ -74,9 +74,9 @@ public class ScopeEmission {
     @Column(name = "scope_type", nullable = false)
     private ScopeType scopeType; // SCOPE1, SCOPE2, SCOPE3
 
-    // Scope 1 카테고리 (프론트엔드 list1-10 매핑)
+    // Scope 1 카테고리 (프론트엔드 list1-11 매핑)
     @Column(name = "scope1_category_number")
-    private Integer scope1CategoryNumber; // 1-10 (list1-10)
+    private Integer scope1CategoryNumber; // 1-11 (list1-11)
 
     @Column(name = "scope1_category_name")
     private String scope1CategoryName; // 카테고리명

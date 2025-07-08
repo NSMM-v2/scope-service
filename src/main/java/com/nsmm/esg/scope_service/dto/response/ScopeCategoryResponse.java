@@ -60,7 +60,6 @@ public class ScopeCategoryResponse {
         .categoryNumber(category.getCategoryNumber())
         .categoryName(category.getCategoryName())
         .categoryGroup(category.getGroupName())
-        .description(category.getDescription())
         .build();
   }
 
@@ -73,7 +72,6 @@ public class ScopeCategoryResponse {
         .categoryNumber(category.getCategoryNumber())
         .categoryName(category.getCategoryName())
         .categoryGroup("에너지")
-        .description(category.getDescription())
         .build();
   }
 

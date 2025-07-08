@@ -5,37 +5,38 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Scope 1 카테고리 열거형 - 프론트엔드 list1-10 매핑
+ * Scope 1 카테고리 열거형 - 프론트엔드 list1-11 매핑
  */
 public enum Scope1Category {
     // 고정연소 그룹 (list1-3)
-    STATIONARY_COMBUSTION_1(1, "액체연료", "고정연소", "보일러 등 고정 설비"),
-    STATIONARY_COMBUSTION_2(2, "가스연료", "고정연소", "발전기 등 고정 설비"),
-    STATIONARY_COMBUSTION_3(3, "고체연료", "고정연소", "기타 고정 설비"),
+    STATIONARY_COMBUSTION_1(1, "액체연료", "고정연소"),
+    STATIONARY_COMBUSTION_2(2, "가스연료", "고정연소"),
+    STATIONARY_COMBUSTION_3(3, "고체연료", "고정연소"),
 
     // 이동연소 그룹 (list4-6)
-    MOBILE_COMBUSTION_1(4, "차량", "이동연소", "차량 연료 연소"),
-    MOBILE_COMBUSTION_2(5, "항공기", "이동연소", "선박 연료 연소"),
-    MOBILE_COMBUSTION_3(6, "선박", "이동연소", "항공기 연료 연소"),
+    MOBILE_COMBUSTION_1(4, "차량", "이동연소"),
+    MOBILE_COMBUSTION_2(5, "항공기", "이동연소"),
+    MOBILE_COMBUSTION_3(6, "선박", "이동연소"),
 
     // 공정배출 그룹 (list7-8)
-    PROCESS_EMISSIONS_1(7, "제조배출", "공정배출", "화학반응 배출"),
-    PROCESS_EMISSIONS_2(8, "폐수처리", "공정배출", "물리적 변화 배출"),
+    PROCESS_EMISSIONS_1(7, "제조배출", "공정배출"),
+    PROCESS_EMISSIONS_2(8, "폐수처리", "공정배출"),
 
     // 냉매누출 그룹 (list9-10)
-    REFRIGERANT_LEAKAGE_1(9, "냉동/냉방/설비냉매", "냉매누출", "냉장/냉동 설비"),
-    REFRIGERANT_LEAKAGE_2(10, "소화기 방출", "냉매누출", "에어컨 설비");
+    REFRIGERANT_LEAKAGE_1(9, "냉동/냉방/설비냉매", "냉매누출"),
+    REFRIGERANT_LEAKAGE_2(10, "소화기 방출", "냉매누출"),
+
+    // 공장설비 그룹 (list11)
+    FACTORY_EQUIPMENT_1(11, "공장설비", "공장설비");
 
     private final int categoryNumber;
     private final String categoryName;
     private final String groupName;
-    private final String description;
 
-    Scope1Category(int categoryNumber, String categoryName, String groupName, String description) {
+    Scope1Category(int categoryNumber, String categoryName, String groupName) {
         this.categoryNumber = categoryNumber;
         this.categoryName = categoryName;
         this.groupName = groupName;
-        this.description = description;
     }
 
     public int getCategoryNumber() {
@@ -48,10 +49,6 @@ public enum Scope1Category {
 
     public String getGroupName() {
         return groupName;
-    }
-
-    public String getDescription() {
-        return description;
     }
 
     public static Scope1Category fromCategoryNumber(int categoryNumber) {
@@ -78,6 +75,7 @@ public enum Scope1Category {
             case "list8" -> 8;
             case "list9" -> 9;
             case "list10" -> 10;
+            case "list11" -> 11;
             default -> throw new IllegalArgumentException("유효하지 않은 list 키: " + listKey);
         };
     }
