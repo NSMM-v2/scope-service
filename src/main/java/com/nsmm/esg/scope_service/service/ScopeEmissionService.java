@@ -596,7 +596,8 @@ public class ScopeEmissionService {
         .emissionFactor(request.getEmissionFactor())
         .totalEmission(request.getTotalEmission())
         .inputType(request.getInputType())
-        .hasProductMapping(request.getHasProductMapping());
+        .hasProductMapping(request.getHasProductMapping())
+        .factoryEnabled(request.getFactoryEnabled());
 
     // Scope 타입별 카테고리 설정
     switch (request.getScopeType()) {
@@ -726,6 +727,11 @@ public class ScopeEmissionService {
           throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다");
         }
       }
+    }
+
+    // 공장 설비 활성화 여부 업데이트
+    if (request.getFactoryEnabled() != null) {
+      builder.factoryEnabled(request.getFactoryEnabled());
     }
 
     // 기존 필드 업데이트

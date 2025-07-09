@@ -74,9 +74,9 @@ public class ScopeEmission {
     @Column(name = "scope_type", nullable = false)
     private ScopeType scopeType; // SCOPE1, SCOPE2, SCOPE3
 
-    // Scope 1 카테고리 (프론트엔드 list1-11 매핑)
+    // Scope 1 카테고리 (프론트엔드 list1-10 매핑)
     @Column(name = "scope1_category_number")
-    private Integer scope1CategoryNumber; // 1-11 (list1-11)
+    private Integer scope1CategoryNumber; // 1-10 (list1-10)
 
     @Column(name = "scope1_category_name")
     private String scope1CategoryName; // 카테고리명
@@ -145,6 +145,10 @@ public class ScopeEmission {
     @Column(name = "has_product_mapping", nullable = false)
     @Builder.Default
     private Boolean hasProductMapping = false; // 제품 코드 매핑 여부
+
+    @Column(name = "factory_enabled", nullable = false)
+    @Builder.Default
+    private Boolean factoryEnabled = false; // 공장 설비 활성화 여부
 
     // ========================================================================
     // 감사 필드 (Audit Fields)

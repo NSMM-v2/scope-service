@@ -41,6 +41,9 @@ public class ScopeEmissionUpdateRequest {
   @Schema(description = "제품 코드 매핑 여부", example = "false")
   private Boolean hasProductMapping;
 
+  @Schema(description = "공장 설비 활성화 여부", example = "false")
+  private Boolean factoryEnabled;
+
   // ========================================================================
   // 제품 코드 매핑 정보 (Product Code Mapping)
   // ========================================================================

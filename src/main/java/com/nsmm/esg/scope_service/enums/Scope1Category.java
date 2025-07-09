@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Scope 1 카테고리 열거형 - 프론트엔드 list1-11 매핑
+ * Scope 1 카테고리 열거형 - 프론트엔드 list1-10 매핑
  */
 public enum Scope1Category {
     // 고정연소 그룹 (list1-3)
@@ -24,10 +24,7 @@ public enum Scope1Category {
 
     // 냉매누출 그룹 (list9-10)
     REFRIGERANT_LEAKAGE_1(9, "냉동/냉방/설비냉매", "냉매누출"),
-    REFRIGERANT_LEAKAGE_2(10, "소화기 방출", "냉매누출"),
-
-    // 공장설비 그룹 (list11)
-    FACTORY_EQUIPMENT_1(11, "공장설비", "공장설비");
+    REFRIGERANT_LEAKAGE_2(10, "소화기 방출", "냉매누출");
 
     private final int categoryNumber;
     private final String categoryName;
@@ -75,7 +72,6 @@ public enum Scope1Category {
             case "list8" -> 8;
             case "list9" -> 9;
             case "list10" -> 10;
-            case "list11" -> 11;
             default -> throw new IllegalArgumentException("유효하지 않은 list 키: " + listKey);
         };
     }
