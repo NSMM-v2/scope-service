@@ -327,8 +327,8 @@ public class ScopeEmissionService {
         total = scopeEmissionRepository.sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(
             Long.parseLong(headquartersId), scopeType, year, month);
       } else {
-        total = scopeEmissionRepository.sumTotalEmissionByScopeTypeAndYearAndMonthForPartner(
-            Long.parseLong(partnerId), treePath, scopeType, year, month);
+        total = scopeEmissionRepository.sumTotalEmissionByScopeTypeAndTreePathForPartner(
+            Long.parseLong(headquartersId), treePath, scopeType, year, month);
       }
       summaryMap.put(scopeType.name(), total != null ? total : BigDecimal.ZERO);
     }

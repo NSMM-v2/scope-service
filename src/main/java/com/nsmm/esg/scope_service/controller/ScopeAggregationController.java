@@ -47,29 +47,43 @@ public class ScopeAggregationController {
   /**
    * 종합 집계 결과 조회 (모든 집계 로직 포함)
    * 기본 Scope별 합계 + Scope3 카테고리별 특수 집계 + 제품별 집계 + 계층별 집계
+   * 사용자 계층에 따라 적절한 범위의 데이터만 집계하여 반환
    */
   @Operation(summary = "종합 집계 결과 조회", description = "모든 집계 로직이 포함된 종합 결과를 제공합니다. " +
-      "기본 Scope별 합계, Scope3 특수 집계, 제품별 집계, 계층별 집계가 포함됩니다.")
+      "기본 Scope별 합계, Scope3 특수 집계, 제품별 집계, 계층별 집계가 포함됩니다. " +
+      "사용자의 계층 위치에 따라 적절한 범위의 데이터만 집계합니다.")
   @GetMapping("/comprehensive/{year}/{month}")
   public ResponseEntity<ApiResponse<ScopeAggregationResponse>> getComprehensiveAggregation(
       @Parameter(description = "보고 연도", example = "2024") @PathVariable Integer year,
       @Parameter(description = "보고 월", example = "12") @PathVariable Integer month,
-      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId) {
+      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
+      @Parameter(description = "사용자 타입", example = "HEADQUARTERS") @RequestHeader("X-USER-TYPE") String userType,
+      @Parameter(description = "협력사 ID (협력사인 경우)", example = "2") @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @Parameter(description = "트리 경로", example = "/1/L1-001/") @RequestHeader(value = "X-TREE-PATH", required = false) String treePath,
+      @Parameter(description = "계층 레벨", example = "1") @RequestHeader(value = "X-LEVEL", required = false) String level) {
 
     try {
-      log.info("종합 집계 요청 - 본사ID: {}, 연도: {}, 월: {}", headquartersId, year, month);
+      log.info("종합 집계 요청 - 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 트리경로: {}, 레벨: {}, 연도: {}, 월: {}", 
+          headquartersId, userType, partnerId, treePath, level, year, month);
 
       ScopeAggregationResponse response = scopeAggregationService
-          .getComprehensiveAggregation(Long.parseLong(headquartersId), year, month);
+          .getComprehensiveAggregation(
+              Long.parseLong(headquartersId), 
+              userType, 
+              partnerId != null ? Long.parseLong(partnerId) : null,
+              treePath,
+              level != null ? Integer.parseInt(level) : null,
+              year, 
+              month);
 
-      log.info("종합 집계 완료 - 본사ID: {}, 결과: {}", headquartersId, response != null ? "성공" : "데이터 없음");
+      log.info("종합 집계 완료 - 본사ID: {}, 사용자타입: {}, 결과: {}", headquartersId, userType, response != null ? "성공" : "데이터 없음");
 
       return ResponseEntity.ok(ApiResponse.success(response, "종합 집계 결과가 성공적으로 조회되었습니다"));
 
     } catch (NumberFormatException e) {
-      log.warn("잘못된 본사 ID 형식: {}", headquartersId);
+      log.warn("잘못된 숫자 형식 - 본사ID: {}, 협력사ID: {}, 레벨: {}", headquartersId, partnerId, level);
       return ResponseEntity.badRequest()
-          .body(ApiResponse.error("본사 ID는 숫자여야 합니다", "INVALID_HEADQUARTERS_ID"));
+          .body(ApiResponse.error("ID 또는 레벨은 숫자여야 합니다", "INVALID_NUMERIC_FORMAT"));
     } catch (Exception e) {
       log.error("종합 집계 중 오류 발생: {}", e.getMessage(), e);
       return ResponseEntity.internalServerError()
@@ -80,28 +94,42 @@ public class ScopeAggregationController {
   /**
    * 제품별 배출량 집계
    * company_product_code 기준으로 제품별 총 배출량 집계
+   * 사용자 계층에 따라 적절한 범위의 제품 데이터만 집계하여 반환
    */
-  @Operation(summary = "제품별 배출량 집계", description = "company_product_code 기준으로 제품별 Scope 1,2,3 배출량을 집계합니다.")
+  @Operation(summary = "제품별 배출량 집계", description = "company_product_code 기준으로 제품별 Scope 1,2,3 배출량을 집계합니다. " +
+      "사용자의 계층 위치에 따라 적절한 범위의 제품 데이터만 집계합니다.")
   @GetMapping("/product/{year}/{month}")
   public ResponseEntity<ApiResponse<List<ProductEmissionSummary>>> getProductAggregation(
       @Parameter(description = "보고 연도", example = "2024") @PathVariable Integer year,
       @Parameter(description = "보고 월", example = "12") @PathVariable Integer month,
-      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId) {
+      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
+      @Parameter(description = "사용자 타입", example = "HEADQUARTERS") @RequestHeader("X-USER-TYPE") String userType,
+      @Parameter(description = "협력사 ID (협력사인 경우)", example = "2") @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @Parameter(description = "트리 경로", example = "/1/L1-001/") @RequestHeader(value = "X-TREE-PATH", required = false) String treePath,
+      @Parameter(description = "계층 레벨", example = "1") @RequestHeader(value = "X-LEVEL", required = false) String level) {
 
     try {
-      log.info("제품별 집계 요청 - 본사ID: {}, 연도: {}, 월: {}", headquartersId, year, month);
+      log.info("제품별 집계 요청 - 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 트리경로: {}, 레벨: {}, 연도: {}, 월: {}", 
+          headquartersId, userType, partnerId, treePath, level, year, month);
 
       List<ProductEmissionSummary> response = scopeAggregationService
-          .getProductEmissionSummary(Long.parseLong(headquartersId), year, month);
+          .getProductEmissionSummary(
+              Long.parseLong(headquartersId), 
+              userType, 
+              partnerId != null ? Long.parseLong(partnerId) : null,
+              treePath,
+              level != null ? Integer.parseInt(level) : null,
+              year, 
+              month);
 
-      log.info("제품별 집계 완료 - 본사ID: {}, 제품 수: {}", headquartersId, response.size());
+      log.info("제품별 집계 완료 - 본사ID: {}, 사용자타입: {}, 제품 수: {}", headquartersId, userType, response.size());
 
       return ResponseEntity.ok(ApiResponse.success(response, "제품별 집계 결과가 성공적으로 조회되었습니다"));
 
     } catch (NumberFormatException e) {
-      log.warn("잘못된 본사 ID 형식: {}", headquartersId);
+      log.warn("잘못된 숫자 형식 - 본사ID: {}, 협력사ID: {}, 레벨: {}", headquartersId, partnerId, level);
       return ResponseEntity.badRequest()
-          .body(ApiResponse.error("본사 ID는 숫자여야 합니다", "INVALID_HEADQUARTERS_ID"));
+          .body(ApiResponse.error("ID 또는 레벨은 숫자여야 합니다", "INVALID_NUMERIC_FORMAT"));
     } catch (Exception e) {
       log.error("제품별 집계 중 오류 발생: {}", e.getMessage(), e);
       return ResponseEntity.internalServerError()
@@ -112,30 +140,46 @@ public class ScopeAggregationController {
   /**
    * 계층적 집계 (tree_path 기반)
    * 하위 협력사의 배출량 데이터를 상위로 누적하여 집계
+   * 사용자 계층에 따라 해당 사용자 하위의 계층 정보만 반환
    */
-  @Operation(summary = "계층적 배출량 집계", description = "tree_path를 기반으로 하위 협력사의 배출량을 상위로 누적하여 집계합니다.")
+  @Operation(summary = "계층적 배출량 집계", description = "tree_path를 기반으로 하위 협력사의 배출량을 상위로 누적하여 집계합니다. " +
+      "사용자의 계층 위치에 따라 해당 사용자 하위의 계층 정보만 반환합니다.")
   @GetMapping("/hierarchical/{year}/{month}")
   public ResponseEntity<ApiResponse<List<HierarchicalEmissionSummary>>> getHierarchicalAggregation(
       @Parameter(description = "보고 연도", example = "2024") @PathVariable Integer year,
       @Parameter(description = "보고 월", example = "12") @PathVariable Integer month,
       @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
+      @Parameter(description = "사용자 타입", example = "HEADQUARTERS") @RequestHeader("X-USER-TYPE") String userType,
+      @Parameter(description = "협력사 ID (협력사인 경우)", example = "2") @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @Parameter(description = "트리 경로", example = "/1/L1-001/") @RequestHeader(value = "X-TREE-PATH", required = false) String treePath,
+      @Parameter(description = "계층 레벨", example = "1") @RequestHeader(value = "X-LEVEL", required = false) String level,
       @Parameter(description = "기준 계층 경로 (선택사항)", example = "/1/") @RequestParam(required = false) String baseTreePath) {
 
     try {
-      log.info("계층적 집계 요청 - 본사ID: {}, 연도: {}, 월: {}, 기준경로: {}",
-          headquartersId, year, month, baseTreePath);
+      log.info("계층적 집계 요청 - 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 트리경로: {}, 레벨: {}, 연도: {}, 월: {}, 기준경로: {}",
+          headquartersId, userType, partnerId, treePath, level, year, month, baseTreePath);
+
+      // 사용자 컨텍스트를 고려한 기준 경로 설정
+      String effectiveBaseTreePath = (treePath != null && !"HEADQUARTERS".equals(userType)) ? treePath : baseTreePath;
 
       List<HierarchicalEmissionSummary> response = scopeAggregationService
-          .getHierarchicalEmissionSummary(Long.parseLong(headquartersId), baseTreePath, year, month);
+          .getHierarchicalEmissionSummary(
+              Long.parseLong(headquartersId), 
+              userType,
+              partnerId != null ? Long.parseLong(partnerId) : null,
+              effectiveBaseTreePath, 
+              level != null ? Integer.parseInt(level) : null,
+              year, 
+              month);
 
-      log.info("계층적 집계 완료 - 본사ID: {}, 계층 수: {}", headquartersId, response.size());
+      log.info("계층적 집계 완료 - 본사ID: {}, 사용자타입: {}, 계층 수: {}", headquartersId, userType, response.size());
 
       return ResponseEntity.ok(ApiResponse.success(response, "계층적 집계 결과가 성공적으로 조회되었습니다"));
 
     } catch (NumberFormatException e) {
-      log.warn("잘못된 본사 ID 형식: {}", headquartersId);
+      log.warn("잘못된 숫자 형식 - 본사ID: {}, 협력사ID: {}, 레벨: {}", headquartersId, partnerId, level);
       return ResponseEntity.badRequest()
-          .body(ApiResponse.error("본사 ID는 숫자여야 합니다", "INVALID_HEADQUARTERS_ID"));
+          .body(ApiResponse.error("ID 또는 레벨은 숫자여야 합니다", "INVALID_NUMERIC_FORMAT"));
     } catch (Exception e) {
       log.error("계층적 집계 중 오류 발생: {}", e.getMessage(), e);
       return ResponseEntity.internalServerError()

@@ -109,15 +109,15 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
-        // 협력사 기준 ScopeType/연/월별 총 배출량 합계
+        // 협력사 기준 ScopeType/연/월별 총 배출량 합계 (트리 경로 기반)
         @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
-                        "WHERE s.partnerId = :partnerId " +
+                        "WHERE s.headquartersId = :headquartersId " +
                         "AND s.treePath LIKE CONCAT(:treePath, '%') " +
                         "AND s.scopeType = :scopeType " +
                         "AND s.reportingYear = :year " +
                         "AND s.reportingMonth = :month")
-        BigDecimal sumTotalEmissionByScopeTypeAndYearAndMonthForPartner(
-                        @Param("partnerId") Long partnerId,
+        BigDecimal sumTotalEmissionByScopeTypeAndTreePathForPartner(
+                        @Param("headquartersId") Long headquartersId,
                         @Param("treePath") String treePath,
                         @Param("scopeType") ScopeType scopeType,
                         @Param("year") Integer year,
@@ -149,7 +149,7 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("treePath") String treePath,
                         @Param("year") Integer year);
 
-        // 특정 Scope 3 카테고리의 배출량 합계
+        // 특정 Scope 3 카테고리의 배출량 합계 (본사 전체)
         @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
                         "WHERE s.headquartersId = :headquartersId " +
                         "AND s.scopeType = 'SCOPE3' " +
@@ -162,12 +162,27 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
+        // 특정 Scope 3 카테고리의 배출량 합계 (협력사 트리 경로 기반)
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+                        "AND s.scopeType = 'SCOPE3' " +
+                        "AND s.scope3CategoryNumber = :categoryNumber " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope3EmissionByCategoryForPartner(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("treePath") String treePath,
+                        @Param("categoryNumber") Integer categoryNumber,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
         // ========================================================================
         // Scope 1 그룹별 집계 쿼리 (Scope 1 Group Aggregation)
         // ========================================================================
 
         /**
-         * Scope 1 그룹별 배출량 합계
+         * Scope 1 그룹별 배출량 합계 (본사 전체)
          * 특정 그룹(고정연소, 이동연소, 공정배출, 냉매누출, 공장설비)의 배출량 집계
          */
         @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
@@ -178,6 +193,24 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         "AND s.reportingMonth = :month")
         BigDecimal sumScope1EmissionByGroup(
                         @Param("headquartersId") Long headquartersId,
+                        @Param("groupName") String groupName,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 1 그룹별 배출량 합계 (협력사 트리 경로 기반)
+         * 특정 그룹(고정연소, 이동연소, 공정배출, 냉매누출, 공장설비)의 배출량 집계
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+                        "AND s.scopeType = 'SCOPE1' " +
+                        "AND s.scope1CategoryGroup = :groupName " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope1EmissionByGroupForPartner(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("treePath") String treePath,
                         @Param("groupName") String groupName,
                         @Param("year") Integer year,
                         @Param("month") Integer month);
@@ -199,11 +232,145 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("month") Integer month);
 
         // ========================================================================
+        // Factory Enabled 기반 집계 쿼리 (Factory Enabled Based Aggregation)
+        // ========================================================================
+
+        /**
+         * Scope 1에서 공장설비 플래그 기반 배출량 합계 (본사 전체)
+         * factoryEnabled=true인 데이터만 집계 (공장설비 그룹)
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.scopeType = 'SCOPE1' " +
+                        "AND s.factoryEnabled = true " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope1EmissionByFactoryEnabled(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 1에서 공장설비 플래그 기반 배출량 합계 (협력사 트리 경로 기반)
+         * factoryEnabled=true인 데이터만 집계 (공장설비 그룹)
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+                        "AND s.scopeType = 'SCOPE1' " +
+                        "AND s.factoryEnabled = true " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope1EmissionByFactoryEnabledForPartner(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("treePath") String treePath,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 1에서 공장설비 플래그 기반 배출량 합계 (공장설비 제외, 본사 전체)
+         * factoryEnabled=false인 데이터만 집계 (비공장설비 그룹)
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.scopeType = 'SCOPE1' " +
+                        "AND s.factoryEnabled = false " +
+                        "AND s.scope1CategoryGroup NOT IN ('이동연소', '공정배출') " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope1EmissionByFactoryDisabled(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 1에서 공장설비 플래그 기반 배출량 합계 (공장설비 제외, 협력사 트리 경로 기반)
+         * factoryEnabled=false인 데이터만 집계 (비공장설비 그룹)
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+                        "AND s.scopeType = 'SCOPE1' " +
+                        "AND s.factoryEnabled = false " +
+                        "AND s.scope1CategoryGroup NOT IN ('이동연소', '공정배출') " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope1EmissionByFactoryDisabledForPartner(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("treePath") String treePath,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 2에서 공장설비 플래그 기반 배출량 합계 (본사 전체)
+         * factoryEnabled=true인 데이터만 집계 (공장설비 그룹)
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.scopeType = 'SCOPE2' " +
+                        "AND s.factoryEnabled = true " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope2EmissionByFactoryEnabled(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 2에서 공장설비 플래그 기반 배출량 합계 (협력사 트리 경로 기반)
+         * factoryEnabled=true인 데이터만 집계 (공장설비 그룹)
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+                        "AND s.scopeType = 'SCOPE2' " +
+                        "AND s.factoryEnabled = true " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope2EmissionByFactoryEnabledForPartner(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("treePath") String treePath,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 2에서 공장설비 플래그 기반 배출량 합계 (공장설비 제외, 본사 전체)
+         * factoryEnabled=false인 데이터만 집계 (비공장설비 그룹)
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.scopeType = 'SCOPE2' " +
+                        "AND s.factoryEnabled = false " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope2EmissionByFactoryDisabled(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 2에서 공장설비 플래그 기반 배출량 합계 (공장설비 제외, 협력사 트리 경로 기반)
+         * factoryEnabled=false인 데이터만 집계 (비공장설비 그룹)
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+                        "AND s.scopeType = 'SCOPE2' " +
+                        "AND s.factoryEnabled = false " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope2EmissionByFactoryDisabledForPartner(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("treePath") String treePath,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        // ========================================================================
         // Scope 2 집계 쿼리 (Scope 2 Aggregation)
         // ========================================================================
 
         /**
-         * Scope 2 전체 배출량 합계
+         * Scope 2 전체 배출량 합계 (본사 전체)
          * 현재 모든 Scope 2가 공장설비 관련이므로 전체 합계를 사용
          */
         @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
@@ -213,6 +380,22 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         "AND s.reportingMonth = :month")
         BigDecimal sumScope2TotalEmission(
                         @Param("headquartersId") Long headquartersId,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * Scope 2 전체 배출량 합계 (협력사 트리 경로 기반)
+         * 현재 모든 Scope 2가 공장설비 관련이므로 전체 합계를 사용
+         */
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+                        "AND s.scopeType = 'SCOPE2' " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumScope2TotalEmissionForPartner(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("treePath") String treePath,
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
@@ -236,7 +419,7 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
         // ========================================================================
 
         /**
-         * 제품별 집계 (company_product_code 기준)
+         * 제품별 집계 (company_product_code 기준, 본사 전체)
          * 반환값: [companyProductCode, productName, scope1Sum, scope2Sum, scope3Sum,
          * totalSum]
          */
@@ -253,6 +436,29 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         "GROUP BY s.companyProductCode, s.productName")
         List<Object[]> sumEmissionByProductCode(
                         @Param("headquartersId") Long headquartersId,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * 제품별 집계 (company_product_code 기준, 협력사 트리 경로 기반)
+         * 반환값: [companyProductCode, productName, scope1Sum, scope2Sum, scope3Sum,
+         * totalSum]
+         */
+        @Query("SELECT s.companyProductCode, s.productName, " +
+                        "SUM(CASE WHEN s.scopeType = 'SCOPE1' THEN s.totalEmission ELSE 0 END), " +
+                        "SUM(CASE WHEN s.scopeType = 'SCOPE2' THEN s.totalEmission ELSE 0 END), " +
+                        "SUM(CASE WHEN s.scopeType = 'SCOPE3' THEN s.totalEmission ELSE 0 END), " +
+                        "SUM(s.totalEmission) " +
+                        "FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+                        "AND s.hasProductMapping = true " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month " +
+                        "GROUP BY s.companyProductCode, s.productName")
+        List<Object[]> sumEmissionByProductCodeForPartner(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("treePath") String treePath,
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
