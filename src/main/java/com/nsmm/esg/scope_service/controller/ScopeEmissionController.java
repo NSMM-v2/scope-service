@@ -302,6 +302,42 @@ public class ScopeEmissionController {
     }
   }
 
+  // 연도/월별 배출량 데이터 조회 (데이터 입력용 - 본인 데이터만)
+  @Operation(summary = "연도/월별 배출량 조회 (데이터 입력용)", description = "데이터 입력 폼에서 사용하며, 현재 사용자의 데이터만 조회합니다.")
+  @GetMapping("/emissions/input/year/{year}/month/{month}")
+  public ResponseEntity<ApiResponse<List<ScopeEmissionResponse>>> getEmissionsByYearAndMonthForInput(
+      @PathVariable Integer year,
+      @PathVariable Integer month,
+      @Parameter(description = "Scope 타입 필터 (선택적)") @RequestParam(value = "scopeType", required = false) ScopeType scopeType,
+      @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
+      @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
+      @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+    log.info("연도/월별 배출량 조회 요청 (데이터 입력용): year={}, month={}, scopeType={}, userType={}",
+        year, month, scopeType, userType);
+    logHeaders("연도/월별 배출량 조회 (데이터 입력용)", userType, headquartersId, partnerId, treePath);
+
+    try {
+      List<ScopeEmissionResponse> response = scopeEmissionService.getEmissionsByYearAndMonthForInput(
+          year, month, scopeType, userType, headquartersId, partnerId, treePath);
+
+      String message = scopeType != null
+          ? String.format("%d년 %d월 %s 배출량 데이터를 조회했습니다. (본인 데이터만)", year, month, scopeType.getDescription())
+          : String.format("%d년 %d월 전체 Scope 배출량 데이터를 조회했습니다. (본인 데이터만)", year, month);
+
+      return ResponseEntity.ok(ApiResponse.success(response, message));
+    } catch (IllegalArgumentException e) {
+      log.error("연도/월별 배출량 조회 실패 (데이터 입력용): {}", e.getMessage());
+      return ResponseEntity.badRequest()
+          .body(ApiResponse.error(e.getMessage(), "INVALID_REQUEST"));
+    } catch (Exception e) {
+      log.error("연도/월별 배출량 조회 중 오류 발생 (데이터 입력용)", e);
+      return ResponseEntity.internalServerError()
+          .body(ApiResponse.error("배출량 데이터 조회 중 오류가 발생했습니다.", "DATA_FETCH_ERROR"));
+    }
+  }
+
   // 연도/월/카테고리별 배출량 데이터 조회
   @Operation(summary = "연도/월/카테고리별 배출량 조회", description = "선택된 연도/월의 특정 카테고리 배출량 데이터를 조회합니다.")
   @GetMapping("/emissions/year/{year}/month/{month}/scope/{scopeType}/category/{categoryNumber}")

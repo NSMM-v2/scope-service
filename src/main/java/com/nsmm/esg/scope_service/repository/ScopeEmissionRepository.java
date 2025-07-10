@@ -50,6 +50,14 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
         List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndScopeTypeAndReportingYearAndReportingMonth(
                         Long partnerId, String treePath, ScopeType scopeType, Integer year, Integer month);
 
+        // 협력사ID + 정확한 트리경로 + 연도 + 월로 본인 데이터만 조회 (하위 조직 제외)
+        List<ScopeEmission> findByPartnerIdAndTreePathAndReportingYearAndReportingMonth(
+                        Long partnerId, String treePath, Integer year, Integer month);
+
+        // 협력사ID + 정확한 트리경로 + ScopeType + 연도 + 월로 본인 데이터만 조회 (하위 조직 제외)
+        List<ScopeEmission> findByPartnerIdAndTreePathAndScopeTypeAndReportingYearAndReportingMonth(
+                        Long partnerId, String treePath, ScopeType scopeType, Integer year, Integer month);
+
         // ========================================================================
         // 제품 매핑 관련 조회 메서드 (Product Mapping Query Methods)
         // ========================================================================
@@ -92,6 +100,9 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
 
         // 트리경로 + ScopeType으로 전체 조회
         List<ScopeEmission> findByTreePathStartingWithAndScopeType(String treePath, ScopeType scopeType);
+
+        // 정확한 트리경로 + ScopeType으로 본인 데이터만 조회 (하위 조직 제외)
+        List<ScopeEmission> findByTreePathAndScopeType(String treePath, ScopeType scopeType);
 
         // ========================================================================
         // 기본 집계 쿼리 (Basic Aggregation Queries)
@@ -487,33 +498,50 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
+
+
         // ========================================================================
-        // 통계 및 분석 쿼리 (Statistics and Analysis)
+        // 협력사별 월별 집계 쿼리 (Partner Monthly Aggregation)
         // ========================================================================
 
         /**
-         * 전체 회사 수 조회 (tree_path 기반)
+         * 협력사별 ScopeType/연/월별 총 배출량 합계
          */
-        @Query("SELECT COUNT(DISTINCT s.treePath) FROM ScopeEmission s " +
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
                         "WHERE s.headquartersId = :headquartersId " +
-                        "AND s.treePath LIKE CONCAT(:baseTreePath, '%') " +
+                        "AND s.partnerId = :partnerId " +
+                        "AND s.scopeType = :scopeType " +
                         "AND s.reportingYear = :year " +
                         "AND s.reportingMonth = :month")
-        Long countCompaniesByTreePath(
+        BigDecimal sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(
                         @Param("headquartersId") Long headquartersId,
-                        @Param("baseTreePath") String baseTreePath,
+                        @Param("partnerId") Long partnerId,
+                        @Param("scopeType") ScopeType scopeType,
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
         /**
-         * 제품 매핑된 데이터 수 조회
+         * 협력사별 연/월별 배출량 데이터 건수
          */
-        @Query("SELECT COUNT(DISTINCT s.companyProductCode) FROM ScopeEmission s " +
+        @Query("SELECT COUNT(s) FROM ScopeEmission s " +
                         "WHERE s.headquartersId = :headquartersId " +
-                        "AND s.hasProductMapping = true " +
+                        "AND s.partnerId = :partnerId " +
                         "AND s.reportingYear = :year " +
                         "AND s.reportingMonth = :month")
-        Long countProductMappedData(
+        Long countEmissionsByPartnerAndYearAndMonth(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("partnerId") Long partnerId,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        /**
+         * 본사 연/월별 배출량 데이터 건수
+         */
+        @Query("SELECT COUNT(s) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        Long countEmissionsByHeadquartersAndYearAndMonth(
                         @Param("headquartersId") Long headquartersId,
                         @Param("year") Integer year,
                         @Param("month") Integer month);

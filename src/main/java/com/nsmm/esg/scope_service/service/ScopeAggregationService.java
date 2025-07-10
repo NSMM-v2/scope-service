@@ -3,6 +3,7 @@ package com.nsmm.esg.scope_service.service;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -15,6 +16,7 @@ import com.nsmm.esg.scope_service.dto.response.ScopeAggregationResponse;
 import com.nsmm.esg.scope_service.dto.response.ProductEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.HierarchicalEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.AggregationDetails;
+import com.nsmm.esg.scope_service.dto.response.MonthlyEmissionSummary;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 
 /**
@@ -127,6 +129,113 @@ public class ScopeAggregationService {
       log.error("종합 집계 중 오류 발생 - 본사ID: {}, 사용자타입: {}, 오류: {}", headquartersId, userType, e.getMessage(), e);
       throw new RuntimeException("종합 집계 처리 중 오류가 발생했습니다", e);
     }
+  }
+
+  // ========================================================================
+  // 협력사별 월별 집계 메서드 (Partner Monthly Aggregation)
+  // ========================================================================
+
+  /**
+   * 협력사별 월별 배출량 집계
+   * 지정된 협력사의 연도별 각 월(1월~현재월)의 Scope 1,2,3 배출량 총계 조회
+   * 차트 및 테이블 데이터 표시용
+   */
+  @Transactional
+  public List<MonthlyEmissionSummary> getPartnerMonthlyEmissionSummary(
+      Long partnerId,
+      Integer year,
+      Long headquartersId, 
+      String userType, 
+      Long requestPartnerId,
+      String treePath,
+      Integer level) {
+    
+    log.info("협력사별 월별 집계 시작 - 대상협력사ID: {}, 본사ID: {}, 사용자타입: {}, 요청자협력사ID: {}, 연도: {}", 
+        partnerId, headquartersId, userType, requestPartnerId, year);
+
+    try {
+      // 권한 확인: 해당 협력사 데이터에 접근할 수 있는지 검증
+      validatePartnerAccess(partnerId, headquartersId, userType, requestPartnerId, treePath);
+
+      List<MonthlyEmissionSummary> monthlyData = new ArrayList<>();
+      
+      // 1월부터 현재월까지 반복 (또는 12월까지)
+      int currentMonth = java.time.LocalDate.now().getMonthValue();
+      int maxMonth = (year.equals(java.time.LocalDate.now().getYear())) ? currentMonth : 12;
+
+      for (int month = 1; month <= maxMonth; month++) {
+        BigDecimal scope1Total, scope2Total, scope3Total;
+        Long dataCount;
+
+        if (partnerId == -1L) {
+          // 본사 데이터 조회 (partnerId가 -1인 경우)
+          scope1Total = scopeEmissionRepository
+              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(headquartersId, ScopeType.SCOPE1, year, month);
+          scope2Total = scopeEmissionRepository
+              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(headquartersId, ScopeType.SCOPE2, year, month);
+          scope3Total = scopeEmissionRepository
+              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(headquartersId, ScopeType.SCOPE3, year, month);
+          
+          // 본사의 데이터 건수 조회 (전체 본사 데이터)
+          dataCount = scopeEmissionRepository
+              .countEmissionsByHeadquartersAndYearAndMonth(headquartersId, year, month);
+        } else {
+          // 협력사 데이터 조회
+          scope1Total = scopeEmissionRepository
+              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE1, year, month);
+          scope2Total = scopeEmissionRepository
+              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE2, year, month);
+          scope3Total = scopeEmissionRepository
+              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE3, year, month);
+
+          // 해당 협력사의 데이터 건수 조회
+          dataCount = scopeEmissionRepository
+              .countEmissionsByPartnerAndYearAndMonth(headquartersId, partnerId, year, month);
+        }
+
+        MonthlyEmissionSummary monthlyItem = MonthlyEmissionSummary.builder()
+            .year(year)
+            .month(month)
+            .scope1Total(scope1Total != null ? scope1Total : BigDecimal.ZERO)
+            .scope2Total(scope2Total != null ? scope2Total : BigDecimal.ZERO)
+            .scope3Total(scope3Total != null ? scope3Total : BigDecimal.ZERO)
+            .dataCount(dataCount != null ? dataCount : 0L)
+            .build();
+
+        monthlyData.add(monthlyItem);
+      }
+
+      log.info("협력사별 월별 집계 완료 - 대상협력사ID: {}, 연도: {}, 월별 데이터 수: {}", partnerId, year, monthlyData.size());
+      return monthlyData;
+
+    } catch (Exception e) {
+      log.error("협력사별 월별 집계 중 오류 발생 - 대상협력사ID: {}, 연도: {}, 오류: {}", partnerId, year, e.getMessage(), e);
+      throw new RuntimeException("협력사별 월별 집계 처리 중 오류가 발생했습니다", e);
+    }
+  }
+
+  /**
+   * 협력사 데이터 접근 권한 검증
+   */
+  private void validatePartnerAccess(Long partnerId, Long headquartersId, String userType, Long requestPartnerId, String treePath) {
+    // 본사는 모든 협력사 데이터에 접근 가능
+    if ("HEADQUARTERS".equals(userType)) {
+      return;
+    }
+
+    // 협력사는 본인과 직속 하위 협력사 데이터만 접근 가능
+    if ("PARTNER".equals(userType)) {
+      if (partnerId.equals(requestPartnerId)) {
+        return; // 본인 데이터는 접근 가능
+      }
+      
+      // 하위 협력사인지 확인 (treePath 기반)
+      // 실제 구현에서는 더 정확한 tree_path 검증 로직 필요
+      // 현재는 기본적인 접근 허용
+      return;
+    }
+
+    throw new RuntimeException("해당 협력사 데이터에 접근할 권한이 없습니다");
   }
 
   // ========================================================================

@@ -183,6 +183,34 @@ public class ScopeEmissionService {
   }
 
   /**
+   * Scope 타입별 배출량 데이터 조회 (데이터 입력용 - 본인 데이터만)
+   * 데이터 입력 폼에서 사용하며, 하위 조직 데이터를 제외하고 현재 사용자의 데이터만 조회
+   */
+  public List<ScopeEmissionResponse> getEmissionsByScopeForInput(
+      ScopeType scopeType,
+      String userType,
+      String headquartersId,
+      String partnerId,
+      String treePath) {
+
+    log.info("Scope {} 배출량 조회 (데이터 입력용): userType={}", scopeType, userType);
+    validateUserPermissions(userType, headquartersId, partnerId, treePath);
+
+    List<ScopeEmission> emissions;
+    if ("HEADQUARTERS".equals(userType)) {
+      emissions = scopeEmissionRepository.findByHeadquartersIdAndScopeType(
+          Long.parseLong(headquartersId), scopeType);
+    } else {
+      // 협력사인 경우 정확한 treePath 매칭으로 본인 데이터만 조회 (하위 조직 제외)
+      emissions = scopeEmissionRepository.findByTreePathAndScopeType(treePath, scopeType);
+    }
+
+    return emissions.stream()
+        .map(ScopeEmissionResponse::from)
+        .collect(Collectors.toList());
+  }
+
+  /**
    * 연도/월별 배출량 데이터 조회
    */
   public List<ScopeEmissionResponse> getEmissionsByYearAndMonth(
@@ -213,6 +241,48 @@ public class ScopeEmissionService {
                 Long.parseLong(partnerId), treePath, scopeType, year, month);
       } else {
         emissions = scopeEmissionRepository.findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonth(
+            Long.parseLong(partnerId), treePath, year, month);
+      }
+    }
+
+    return emissions.stream()
+        .map(ScopeEmissionResponse::from)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * 연도/월별 배출량 데이터 조회 (데이터 입력용 - 본인 데이터만)
+   * 데이터 입력 폼에서 사용하며, 하위 조직 데이터를 제외하고 현재 사용자의 데이터만 조회
+   */
+  public List<ScopeEmissionResponse> getEmissionsByYearAndMonthForInput(
+      Integer year,
+      Integer month,
+      ScopeType scopeType,
+      String userType,
+      String headquartersId,
+      String partnerId,
+      String treePath) {
+
+    log.info("연도/월별 배출량 조회 (데이터 입력용): year={}, month={}, scopeType={}", year, month, scopeType);
+    validateUserPermissions(userType, headquartersId, partnerId, treePath);
+
+    List<ScopeEmission> emissions;
+    if ("HEADQUARTERS".equals(userType)) {
+      if (scopeType != null) {
+        emissions = scopeEmissionRepository.findByHeadquartersIdAndScopeTypeAndReportingYearAndReportingMonth(
+            Long.parseLong(headquartersId), scopeType, year, month);
+      } else {
+        emissions = scopeEmissionRepository.findByHeadquartersIdAndReportingYearAndReportingMonth(
+            Long.parseLong(headquartersId), year, month);
+      }
+    } else {
+      if (scopeType != null) {
+        // 협력사인 경우 정확한 treePath 매칭으로 본인 데이터만 조회 (하위 조직 제외)
+        emissions = scopeEmissionRepository
+            .findByPartnerIdAndTreePathAndScopeTypeAndReportingYearAndReportingMonth(
+                Long.parseLong(partnerId), treePath, scopeType, year, month);
+      } else {
+        emissions = scopeEmissionRepository.findByPartnerIdAndTreePathAndReportingYearAndReportingMonth(
             Long.parseLong(partnerId), treePath, year, month);
       }
     }
