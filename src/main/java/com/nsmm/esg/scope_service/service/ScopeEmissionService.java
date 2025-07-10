@@ -9,7 +9,6 @@ import com.nsmm.esg.scope_service.enums.Scope2Category;
 import com.nsmm.esg.scope_service.enums.Scope3Category;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.repository.ScopeEmissionRepository;
-import com.nsmm.esg.scope_service.repository.ProductCodeMappingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 // ============================================================================
@@ -43,7 +41,6 @@ import java.util.stream.Collectors;
  * 
  * @author ESG 프로젝트팀
  * @version 2.0
- * @since 2024
  */
 @Slf4j
 @Service
@@ -52,7 +49,6 @@ import java.util.stream.Collectors;
 public class ScopeEmissionService {
 
   private final ScopeEmissionRepository scopeEmissionRepository;
-  private final ProductCodeMappingRepository productCodeMappingRepository;
 
   // ============================================================================
   // 생성 메서드
@@ -102,9 +98,6 @@ public class ScopeEmissionService {
 
       // 2. 기본 필드 검증
       validateBasicFields(request);
-
-      // 3. 제품 코드 처리 (Scope 1, 2에서 선택적)
-      processProductCodeMapping(request);
 
       // 4. 엔티티 생성
       ScopeEmission emission = createScopeEmissionEntity(
@@ -607,34 +600,7 @@ public class ScopeEmissionService {
     }
   }
 
-  /**
-   * 제품 코드 매핑 처리
-   * 
-   * @param request 처리할 요청 데이터
-   */
-  private void processProductCodeMapping(ScopeEmissionRequest request) {
-    // 제품 코드 매핑이 설정된 경우에만 처리
-    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
-      if (request.getScopeType() == ScopeType.SCOPE3) {
-        throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
-      }
 
-      if (request.getCompanyProductCode() == null || request.getCompanyProductCode().trim().isEmpty()) {
-        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드는 필수입니다");
-      }
-
-      // 제품 코드 매핑 정보 조회
-      Optional<ProductCodeMapping> mapping = productCodeMappingRepository
-          .findByProductCode(request.getCompanyProductCode());
-
-      if (mapping.isPresent() && (request.getProductName() == null || request.getProductName().trim().isEmpty())) {
-        // 매핑 정보가 있고 제품명이 없는 경우 자동 설정
-        request.setProductName(mapping.get().getProductName());
-        log.debug("제품 코드 매핑을 통한 제품명 자동 설정: {} -> {}",
-            request.getCompanyProductCode(), request.getProductName());
-      }
-    }
-  }
 
   /**
    * Scope 배출량 엔티티 생성

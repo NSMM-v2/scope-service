@@ -93,52 +93,6 @@ public class ScopeAggregationController {
   }
 
   /**
-   * 제품별 배출량 집계
-   * company_product_code 기준으로 제품별 총 배출량 집계
-   * 사용자 계층에 따라 적절한 범위의 제품 데이터만 집계하여 반환
-   */
-  @Operation(summary = "제품별 배출량 집계", description = "company_product_code 기준으로 제품별 Scope 1,2,3 배출량을 집계합니다. " +
-      "사용자의 계층 위치에 따라 적절한 범위의 제품 데이터만 집계합니다.")
-  @GetMapping("/product/{year}/{month}")
-  public ResponseEntity<ApiResponse<List<ProductEmissionSummary>>> getProductAggregation(
-      @Parameter(description = "보고 연도", example = "2024") @PathVariable Integer year,
-      @Parameter(description = "보고 월", example = "12") @PathVariable Integer month,
-      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
-      @Parameter(description = "사용자 타입", example = "HEADQUARTERS") @RequestHeader("X-USER-TYPE") String userType,
-      @Parameter(description = "협력사 ID (협력사인 경우)", example = "2") @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
-      @Parameter(description = "트리 경로", example = "/1/L1-001/") @RequestHeader(value = "X-TREE-PATH", required = false) String treePath,
-      @Parameter(description = "계층 레벨", example = "1") @RequestHeader(value = "X-LEVEL", required = false) String level) {
-
-    try {
-      log.info("제품별 집계 요청 - 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 트리경로: {}, 레벨: {}, 연도: {}, 월: {}", 
-          headquartersId, userType, partnerId, treePath, level, year, month);
-
-      List<ProductEmissionSummary> response = scopeAggregationService
-          .getProductEmissionSummary(
-              Long.parseLong(headquartersId), 
-              userType, 
-              partnerId != null ? Long.parseLong(partnerId) : null,
-              treePath,
-              level != null ? Integer.parseInt(level) : null,
-              year, 
-              month);
-
-      log.info("제품별 집계 완료 - 본사ID: {}, 사용자타입: {}, 제품 수: {}", headquartersId, userType, response.size());
-
-      return ResponseEntity.ok(ApiResponse.success(response, "제품별 집계 결과가 성공적으로 조회되었습니다"));
-
-    } catch (NumberFormatException e) {
-      log.warn("잘못된 숫자 형식 - 본사ID: {}, 협력사ID: {}, 레벨: {}", headquartersId, partnerId, level);
-      return ResponseEntity.badRequest()
-          .body(ApiResponse.error("ID 또는 레벨은 숫자여야 합니다", "INVALID_NUMERIC_FORMAT"));
-    } catch (Exception e) {
-      log.error("제품별 집계 중 오류 발생: {}", e.getMessage(), e);
-      return ResponseEntity.internalServerError()
-          .body(ApiResponse.error("제품별 집계 처리 중 오류가 발생했습니다", "PRODUCT_AGGREGATION_ERROR"));
-    }
-  }
-
-  /**
    * 협력사별 월별 배출량 집계
    * 지정된 협력사의 연도별 각 월(1월~현재월)의 Scope 1,2,3 배출량 총계 조회
    * 차트 및 테이블 데이터 표시용

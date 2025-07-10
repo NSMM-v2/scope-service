@@ -95,9 +95,6 @@ public class ScopeAggregationService {
       BigDecimal scope3Cat4 = aggregateScope3Category4(headquartersId, userType, treePath, year, month);
       BigDecimal scope3Cat5 = aggregateScope3Category5(headquartersId, userType, treePath, year, month);
 
-      // 제품별 집계 (사용자 컨텍스트 적용)
-      List<ProductEmissionSummary> productSummaries = getProductEmissionSummary(
-          headquartersId, userType, partnerId, treePath, level, year, month);
 
       // 계층별 집계 (사용자 컨텍스트 적용)
       List<HierarchicalEmissionSummary> hierarchicalSummaries = getHierarchicalEmissionSummary(
@@ -117,7 +114,6 @@ public class ScopeAggregationService {
           .scope3Category2Aggregated(scope3Cat2)
           .scope3Category4Aggregated(scope3Cat4)
           .scope3Category5Aggregated(scope3Cat5)
-          .productSummaries(productSummaries)
           .hierarchicalSummaries(hierarchicalSummaries)
           .aggregationDetails(details)
           .build();
@@ -342,43 +338,7 @@ public class ScopeAggregationService {
     return result;
   }
 
-  // ========================================================================
-  // 제품별 집계 메서드 (Product Aggregation)
-  // ========================================================================
 
-  /**
-   * 제품별 배출량 집계 (사용자 컨텍스트 기반)
-   * company_product_code 기준으로 제품별 총 배출량 집계
-   */
-  @Transactional
-  public List<ProductEmissionSummary> getProductEmissionSummary(
-      Long headquartersId, 
-      String userType, 
-      Long partnerId, 
-      String treePath, 
-      Integer level,
-      Integer year, 
-      Integer month) {
-    
-    log.debug("제품별 집계 시작 - 본사ID: {}, 사용자타입: {}, 트리경로: {}", headquartersId, userType, treePath);
-
-    List<Object[]> queryResults;
-    
-    if ("HEADQUARTERS".equals(userType)) {
-      // 본사: 전체 조직 데이터
-      queryResults = scopeEmissionRepository.sumEmissionByProductCode(headquartersId, year, month);
-    } else {
-      // 협력사: 트리 경로 하위 데이터만
-      queryResults = scopeEmissionRepository.sumEmissionByProductCodeForPartner(headquartersId, treePath, year, month);
-    }
-
-    List<ProductEmissionSummary> result = queryResults.stream()
-        .map(ProductEmissionSummary::from)
-        .collect(Collectors.toList());
-
-    log.debug("제품별 집계 완료 - 본사ID: {}, 사용자타입: {}, 제품 수: {}", headquartersId, userType, result.size());
-    return result;
-  }
 
   // ========================================================================
   // 계층적 집계 메서드 (Hierarchical Aggregation)

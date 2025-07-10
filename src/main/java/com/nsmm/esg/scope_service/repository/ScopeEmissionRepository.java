@@ -12,14 +12,14 @@ import java.util.List;
 
 /**
  * ScopeEmission 엔티티의 데이터베이스 접근 레포지토리
- * 
+ *
  * 주요 기능:
  * - 기본 CRUD 작업
  * - 계층적 배출량 집계 쿼리
  * - Scope별/카테고리별 집계 쿼리
  * - 제품별 집계 쿼리
  * - 그룹별 집계 쿼리 (Scope 3 특수 집계용)
- * 
+ *
  * @author ESG Project Team
  * @version 1.0
  * @since 2024
@@ -381,7 +381,7 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
         // ========================================================================
 
         /**
-         * Scope 2 전체 배출량 합계 (본사 전체)
+         *          * Scope 2 전체 배출량 합계 (본사 전체)
          * 현재 모든 Scope 2가 공장설비 관련이므로 전체 합계를 사용
          */
         @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
@@ -425,53 +425,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
-        // ========================================================================
-        // 제품별 집계 쿼리 (Product-based Aggregation)
-        // ========================================================================
-
-        /**
-         * 제품별 집계 (company_product_code 기준, 본사 전체)
-         * 반환값: [companyProductCode, productName, scope1Sum, scope2Sum, scope3Sum,
-         * totalSum]
-         */
-        @Query("SELECT s.companyProductCode, s.productName, " +
-                        "SUM(CASE WHEN s.scopeType = 'SCOPE1' THEN s.totalEmission ELSE 0 END), " +
-                        "SUM(CASE WHEN s.scopeType = 'SCOPE2' THEN s.totalEmission ELSE 0 END), " +
-                        "SUM(CASE WHEN s.scopeType = 'SCOPE3' THEN s.totalEmission ELSE 0 END), " +
-                        "SUM(s.totalEmission) " +
-                        "FROM ScopeEmission s " +
-                        "WHERE s.headquartersId = :headquartersId " +
-                        "AND s.hasProductMapping = true " +
-                        "AND s.reportingYear = :year " +
-                        "AND s.reportingMonth = :month " +
-                        "GROUP BY s.companyProductCode, s.productName")
-        List<Object[]> sumEmissionByProductCode(
-                        @Param("headquartersId") Long headquartersId,
-                        @Param("year") Integer year,
-                        @Param("month") Integer month);
-
-        /**
-         * 제품별 집계 (company_product_code 기준, 협력사 트리 경로 기반)
-         * 반환값: [companyProductCode, productName, scope1Sum, scope2Sum, scope3Sum,
-         * totalSum]
-         */
-        @Query("SELECT s.companyProductCode, s.productName, " +
-                        "SUM(CASE WHEN s.scopeType = 'SCOPE1' THEN s.totalEmission ELSE 0 END), " +
-                        "SUM(CASE WHEN s.scopeType = 'SCOPE2' THEN s.totalEmission ELSE 0 END), " +
-                        "SUM(CASE WHEN s.scopeType = 'SCOPE3' THEN s.totalEmission ELSE 0 END), " +
-                        "SUM(s.totalEmission) " +
-                        "FROM ScopeEmission s " +
-                        "WHERE s.headquartersId = :headquartersId " +
-                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
-                        "AND s.hasProductMapping = true " +
-                        "AND s.reportingYear = :year " +
-                        "AND s.reportingMonth = :month " +
-                        "GROUP BY s.companyProductCode, s.productName")
-        List<Object[]> sumEmissionByProductCodeForPartner(
-                        @Param("headquartersId") Long headquartersId,
-                        @Param("treePath") String treePath,
-                        @Param("year") Integer year,
-                        @Param("month") Integer month);
 
         // ========================================================================
         // 계층적 집계 쿼리 (Hierarchical Aggregation)
