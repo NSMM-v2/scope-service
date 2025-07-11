@@ -13,9 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import com.nsmm.esg.scope_service.repository.ScopeEmissionRepository;
-import com.nsmm.esg.scope_service.dto.response.ScopeAggregationResponse;
-import com.nsmm.esg.scope_service.dto.response.HierarchicalEmissionSummary;
-import com.nsmm.esg.scope_service.dto.response.AggregationDetails;
 import com.nsmm.esg.scope_service.dto.response.MonthlyEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.CategoryYearlyEmission;
 import com.nsmm.esg.scope_service.dto.response.CategoryMonthlyEmission;

@@ -128,27 +128,6 @@ public class ScopeEmissionResponse {
   // 편의 메서드 (Convenience Methods)
   // ========================================================================
 
-  /**
-   * 현재 활성 카테고리 번호 반환
-   */
-  public Integer getActiveCategoryNumber() {
-    return switch (scopeType) {
-      case SCOPE1 -> scope1CategoryNumber;
-      case SCOPE2 -> scope2CategoryNumber;
-      case SCOPE3 -> scope3CategoryNumber;
-    };
-  }
-
-  /**
-   * 현재 활성 카테고리명 반환
-   */
-  public String getActiveCategoryName() {
-    return switch (scopeType) {
-      case SCOPE1 -> scope1CategoryName;
-      case SCOPE2 -> scope2CategoryName;
-      case SCOPE3 -> scope3CategoryName;
-    };
-  }
 
   public static ScopeEmissionResponse from(ScopeEmission emission) {
     return ScopeEmissionResponse.builder()

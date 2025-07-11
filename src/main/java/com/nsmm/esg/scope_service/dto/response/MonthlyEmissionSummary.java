@@ -13,10 +13,7 @@ import lombok.NoArgsConstructor;
  * 
  * 협력사별 월별 Scope 1,2,3 배출량 총계 정보를 담는 DTO
  * 차트 및 테이블 데이터 표시에 사용됩니다.
- * 
- * @author ESG Project Team
- * @version 1.0
- * @since 2024
+ *
  */
 @Data
 @Builder
