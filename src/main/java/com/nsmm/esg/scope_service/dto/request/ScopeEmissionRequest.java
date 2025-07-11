@@ -134,7 +134,10 @@ public class ScopeEmissionRequest {
   @Builder.Default
   private Boolean hasProductMapping = false;
 
-
+  @Schema(description = "공장 설비 활성화 여부", example = "false")
+  @NotNull(message = "공장 설비 활성화 여부는 필수입니다")
+  @Builder.Default
+  private Boolean factoryEnabled = false;
 
   // ========================================================================
   // 편의 메서드 (Convenience Methods)
@@ -157,6 +160,5 @@ public class ScopeEmissionRequest {
   public Integer getCategoryNumber() {
     return getActiveCategoryNumber();
   }
-
 
 }

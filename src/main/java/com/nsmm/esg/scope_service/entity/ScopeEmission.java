@@ -146,6 +146,10 @@ public class ScopeEmission {
     @Builder.Default
     private Boolean hasProductMapping = false; // 제품 코드 매핑 여부
 
+    @Column(name = "factory_enabled", nullable = false)
+    @Builder.Default
+    private Boolean factoryEnabled = false; // 공장 설비 활성화 여부
+
     // ========================================================================
     // 감사 필드 (Audit Fields)
     // ========================================================================

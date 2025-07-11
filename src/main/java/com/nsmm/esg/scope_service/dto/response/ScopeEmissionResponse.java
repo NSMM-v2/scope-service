@@ -21,8 +21,6 @@ import java.time.LocalDateTime;
  * - 모든 Scope 타입 지원
  * - 기존 Scope3EmissionResponse와 호환
  * 
- * @author ESG Project Team
- * @version 1.0
  */
 @Getter
 @Builder
@@ -107,6 +105,9 @@ public class ScopeEmissionResponse {
   @Schema(description = "제품 코드 매핑 여부", example = "false")
   private Boolean hasProductMapping;
 
+  @Schema(description = "공장 설비 활성화 여부", example = "false")
+  private Boolean factoryEnabled;
+
   @Schema(description = "보고 연도", example = "2024")
   private Integer reportingYear; // 보고 연도
 
@@ -127,27 +128,6 @@ public class ScopeEmissionResponse {
   // 편의 메서드 (Convenience Methods)
   // ========================================================================
 
-  /**
-   * 현재 활성 카테고리 번호 반환
-   */
-  public Integer getActiveCategoryNumber() {
-    return switch (scopeType) {
-      case SCOPE1 -> scope1CategoryNumber;
-      case SCOPE2 -> scope2CategoryNumber;
-      case SCOPE3 -> scope3CategoryNumber;
-    };
-  }
-
-  /**
-   * 현재 활성 카테고리명 반환
-   */
-  public String getActiveCategoryName() {
-    return switch (scopeType) {
-      case SCOPE1 -> scope1CategoryName;
-      case SCOPE2 -> scope2CategoryName;
-      case SCOPE3 -> scope3CategoryName;
-    };
-  }
 
   public static ScopeEmissionResponse from(ScopeEmission emission) {
     return ScopeEmissionResponse.builder()
@@ -171,6 +151,7 @@ public class ScopeEmissionResponse {
         .totalEmission(emission.getTotalEmission())
         .inputType(emission.getInputType())
         .hasProductMapping(emission.getHasProductMapping())
+        .factoryEnabled(emission.getFactoryEnabled())
         .reportingYear(emission.getReportingYear())
         .reportingMonth(emission.getReportingMonth())
         .createdAt(emission.getCreatedAt())

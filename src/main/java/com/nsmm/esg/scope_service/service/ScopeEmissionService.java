@@ -9,16 +9,12 @@ import com.nsmm.esg.scope_service.enums.Scope2Category;
 import com.nsmm.esg.scope_service.enums.Scope3Category;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.repository.ScopeEmissionRepository;
-import com.nsmm.esg.scope_service.repository.ProductCodeMappingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 // ============================================================================
@@ -34,16 +30,11 @@ import java.util.stream.Collectors;
  * - Scope 1, 2에서 제품 코드/제품명 선택적 처리
  * - 프론트엔드 계산값 그대로 저장
  * - 중복 데이터 검증 및 트랜잭션 관리
- * 
  * 비즈니스 규칙:
  * - Scope 1, 2: 제품 코드/제품명 선택적 (null 허용)
  * - Scope 3: 모든 필드 필수 (기존 로직 유지)
  * - 본사: 모든 하위 조직 데이터 접근 가능
  * - 협력사: 본인 및 하위 조직 데이터만 접근 가능
- * 
- * @author ESG 프로젝트팀
- * @version 2.0
- * @since 2024
  */
 @Slf4j
 @Service
@@ -52,7 +43,6 @@ import java.util.stream.Collectors;
 public class ScopeEmissionService {
 
   private final ScopeEmissionRepository scopeEmissionRepository;
-  private final ProductCodeMappingRepository productCodeMappingRepository;
 
   // ============================================================================
   // 생성 메서드
@@ -66,13 +56,6 @@ public class ScopeEmissionService {
    * - Scope 3: 모든 필드 필수 (기존 로직 유지)
    * - 프론트엔드 계산값 그대로 저장
    * - 중복 검증 제거로 자유로운 데이터 입력 허용
-   * 
-   * @param request        생성 요청 데이터
-   * @param userType       사용자 타입 (HEADQUARTERS | PARTNER)
-   * @param headquartersId 본사 ID
-   * @param partnerId      협력사 ID (협력사인 경우)
-   * @param treePath       계층 경로 (협력사인 경우)
-   * @return 생성된 배출량 데이터
    */
   @Transactional
   public ScopeEmissionResponse createScopeEmission(
@@ -103,9 +86,6 @@ public class ScopeEmissionService {
       // 2. 기본 필드 검증
       validateBasicFields(request);
 
-      // 3. 제품 코드 처리 (Scope 1, 2에서 선택적)
-      processProductCodeMapping(request);
-
       // 4. 엔티티 생성
       ScopeEmission emission = createScopeEmissionEntity(
           request, finalHeadquartersId, finalPartnerId, treePath);
@@ -127,54 +107,31 @@ public class ScopeEmissionService {
   // 조회 메서드
   // ============================================================================
 
-  /**
-   * 특정 배출량 데이터 조회 (권한 검증 포함)
-   * 
-   * @param id            배출량 데이터 ID
-   * @param accountNumber 계정 번호
-   * @param userType      사용자 타입
-   * @param treePath      사용자 TreePath
-   * @return 배출량 데이터
-   */
-  public ScopeEmissionResponse getScopeEmissionById(Long id, String accountNumber, String userType, String treePath) {
-    log.info("배출량 데이터 조회: id={}, accountNumber={}, userType={}", id, accountNumber, userType);
-
-    ScopeEmission emission = scopeEmissionRepository.findById(id)
-        .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + id));
-
-    // 권한 검증: 본사는 무조건 허용, 협력사는 본인/하위조직만 허용
-    if ("HEADQUARTERS".equals(userType)) {
-      // 본사는 모든 데이터 접근 허용
-    } else if ("PARTNER".equals(userType)) {
-      if (!emission.getTreePath().startsWith(treePath)) {
-        throw new IllegalArgumentException("해당 데이터에 접근할 권한이 없습니다");
-      }
-    } else {
-      throw new IllegalArgumentException("알 수 없는 사용자 유형입니다");
-    }
-
-    return ScopeEmissionResponse.from(emission);
-  }
-
-  /**
-   * Scope 타입별 배출량 데이터 조회
-   */
+  // Scope 타입별 배출량 데이터 조회 (본인 데이터만)
   public List<ScopeEmissionResponse> getEmissionsByScope(
       ScopeType scopeType,
+      String accountNumber,
       String userType,
       String headquartersId,
       String partnerId,
       String treePath) {
 
-    log.info("Scope {} 배출량 조회: userType={}", scopeType, userType);
+    log.info("Scope {} 배출량 조회: accountNumber={}, userType={}", scopeType, accountNumber, userType);
     validateUserPermissions(userType, headquartersId, partnerId, treePath);
 
     List<ScopeEmission> emissions;
     if ("HEADQUARTERS".equals(userType)) {
-      emissions = scopeEmissionRepository.findByHeadquartersIdAndScopeType(
+      // 본사: 본인의 본사 데이터만 조회 (하위 협력사 데이터 제외)
+      emissions = scopeEmissionRepository.findByHeadquartersIdAndPartnerIdIsNullAndScopeType(
           Long.parseLong(headquartersId), scopeType);
+      log.info("본사 본인 데이터 조회: headquartersId={}, 조회된 건수={}", headquartersId, emissions.size());
+    } else if ("PARTNER".equals(userType)) {
+      // 협력사: 본인의 협력사 데이터만 조회
+      emissions = scopeEmissionRepository.findByPartnerIdAndScopeType(
+          Long.parseLong(partnerId), scopeType);
+      log.info("협력사 본인 데이터 조회: partnerId={}, 조회된 건수={}", partnerId, emissions.size());
     } else {
-      emissions = scopeEmissionRepository.findByTreePathStartingWithAndScopeType(treePath, scopeType);
+      throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
     }
 
     return emissions.stream()
@@ -182,211 +139,9 @@ public class ScopeEmissionService {
         .collect(Collectors.toList());
   }
 
-  /**
-   * 연도/월별 배출량 데이터 조회
-   */
-  public List<ScopeEmissionResponse> getEmissionsByYearAndMonth(
-      Integer year,
-      Integer month,
-      ScopeType scopeType,
-      String userType,
-      String headquartersId,
-      String partnerId,
-      String treePath) {
 
-    log.info("연도/월별 배출량 조회: year={}, month={}, scopeType={}", year, month, scopeType);
-    validateUserPermissions(userType, headquartersId, partnerId, treePath);
 
-    List<ScopeEmission> emissions;
-    if ("HEADQUARTERS".equals(userType)) {
-      if (scopeType != null) {
-        emissions = scopeEmissionRepository.findByHeadquartersIdAndScopeTypeAndReportingYearAndReportingMonth(
-            Long.parseLong(headquartersId), scopeType, year, month);
-      } else {
-        emissions = scopeEmissionRepository.findByHeadquartersIdAndReportingYearAndReportingMonth(
-            Long.parseLong(headquartersId), year, month);
-      }
-    } else {
-      if (scopeType != null) {
-        emissions = scopeEmissionRepository
-            .findByPartnerIdAndTreePathStartingWithAndScopeTypeAndReportingYearAndReportingMonth(
-                Long.parseLong(partnerId), treePath, scopeType, year, month);
-      } else {
-        emissions = scopeEmissionRepository.findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonth(
-            Long.parseLong(partnerId), treePath, year, month);
-      }
-    }
-
-    return emissions.stream()
-        .map(ScopeEmissionResponse::from)
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * 연도/월/카테고리별 배출량 데이터 조회
-   */
-  public List<ScopeEmissionResponse> getEmissionsByYearAndMonthAndCategory(
-      Integer year,
-      Integer month,
-      ScopeType scopeType,
-      Integer categoryNumber,
-      String userType,
-      String headquartersId,
-      String partnerId,
-      String treePath) {
-
-    log.info("연도/월/카테고리별 배출량 조회: year={}, month={}, scope={}, category={}",
-        year, month, scopeType, categoryNumber);
-    validateUserPermissions(userType, headquartersId, partnerId, treePath);
-
-    List<ScopeEmission> emissions;
-    if ("HEADQUARTERS".equals(userType)) {
-      emissions = findByCategoryNumber(Long.parseLong(headquartersId), null, treePath,
-          year, month, scopeType, categoryNumber, true);
-    } else {
-      emissions = findByCategoryNumber(null, Long.parseLong(partnerId), treePath,
-          year, month, scopeType, categoryNumber, false);
-    }
-
-    return emissions.stream()
-        .map(ScopeEmissionResponse::from)
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * 제품 코드별 배출량 데이터 조회
-   */
-  public List<ScopeEmissionResponse> getEmissionsByProductCode(
-      String productCode,
-      ScopeType scopeType,
-      String userType,
-      String headquartersId,
-      String partnerId,
-      String treePath) {
-
-    log.info("제품 코드별 배출량 조회: productCode={}, scopeType={}", productCode, scopeType);
-    validateUserPermissions(userType, headquartersId, partnerId, treePath);
-
-    // Scope 3는 제품 코드 매핑이 불가능하므로 체크
-    if (scopeType == ScopeType.SCOPE3) {
-      throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 지원하지 않습니다");
-    }
-
-    List<ScopeEmission> emissions;
-    if ("HEADQUARTERS".equals(userType)) {
-      emissions = scopeEmissionRepository.findByHeadquartersIdAndHasProductMappingTrueAndCompanyProductCode(
-          Long.parseLong(headquartersId), productCode);
-
-      // Scope 타입 필터링
-      if (scopeType != null) {
-        emissions = emissions.stream()
-            .filter(emission -> emission.getScopeType() == scopeType)
-            .collect(Collectors.toList());
-      }
-    } else {
-      emissions = scopeEmissionRepository
-          .findByPartnerIdAndTreePathStartingWithAndHasProductMappingTrueAndCompanyProductCode(
-              Long.parseLong(partnerId), treePath, productCode);
-
-      // Scope 타입 필터링
-      if (scopeType != null) {
-        emissions = emissions.stream()
-            .filter(emission -> emission.getScopeType() == scopeType)
-            .collect(Collectors.toList());
-      }
-    }
-
-    return emissions.stream()
-        .map(ScopeEmissionResponse::from)
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * 연도/월별 Scope 타입별 총계 조회
-   */
-  public Map<String, BigDecimal> getScopeSummaryByYearAndMonth(
-      Integer year,
-      Integer month,
-      String userType,
-      String headquartersId,
-      String partnerId,
-      String treePath) {
-
-    log.info("연도/월별 Scope 타입별 총계 조회: year={}, month={}", year, month);
-    validateUserPermissions(userType, headquartersId, partnerId, treePath);
-
-    Map<String, BigDecimal> summaryMap = Map.of(
-        "SCOPE1", BigDecimal.ZERO,
-        "SCOPE2", BigDecimal.ZERO,
-        "SCOPE3", BigDecimal.ZERO);
-
-    // 각 Scope별로 개별 계산
-    for (ScopeType scopeType : ScopeType.values()) {
-      BigDecimal total;
-      if ("HEADQUARTERS".equals(userType)) {
-        total = scopeEmissionRepository.sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(
-            Long.parseLong(headquartersId), scopeType, year, month);
-      } else {
-        total = scopeEmissionRepository.sumTotalEmissionByScopeTypeAndYearAndMonthForPartner(
-            Long.parseLong(partnerId), treePath, scopeType, year, month);
-      }
-      summaryMap.put(scopeType.name(), total != null ? total : BigDecimal.ZERO);
-    }
-
-    return summaryMap;
-  }
-
-  /**
-   * 특정 Scope의 카테고리별 총계 조회
-   */
-  public Map<Integer, BigDecimal> getCategorySummaryByScope(
-      ScopeType scopeType,
-      Integer year,
-      Integer month,
-      String userType,
-      String headquartersId,
-      String partnerId,
-      String treePath) {
-
-    log.info("Scope {} 카테고리별 총계 조회: year={}, month={}", scopeType, year, month);
-    validateUserPermissions(userType, headquartersId, partnerId, treePath);
-
-    List<Object[]> results;
-    if ("HEADQUARTERS".equals(userType)) {
-      results = getCategorySummaryResults(Long.parseLong(headquartersId), null, treePath,
-          scopeType, year, month, true);
-    } else {
-      results = getCategorySummaryResults(null, Long.parseLong(partnerId), treePath,
-          scopeType, year, month, false);
-    }
-
-    return results.stream()
-        .collect(Collectors.toMap(
-            result -> (Integer) result[0], // categoryNumber
-            result -> (BigDecimal) result[1] // totalEmission
-        ));
-  }
-
-  // ============================================================================
-  // 업데이트 메서드
-  // ============================================================================
-
-  /**
-   * Scope 배출량 데이터 수정
-   * 
-   * 특징:
-   * - 부분 업데이트 지원 (null이 아닌 필드만 업데이트)
-   * - 권한 검증 포함 (본사/협력사 구분)
-   * - 중복 검증 제거로 자유로운 데이터 수정 허용
-   * 
-   * @param id             수정할 배출량 데이터 ID
-   * @param request        수정 요청 데이터
-   * @param userType       사용자 타입
-   * @param headquartersId 본사 ID
-   * @param partnerId      협력사 ID
-   * @param treePath       계층 경로
-   * @return 수정된 배출량 데이터
-   */
+  // Scope 배출량 데이터 수정
   @Transactional
   public ScopeEmissionResponse updateScopeEmission(
       Long id,
@@ -415,19 +170,7 @@ public class ScopeEmissionService {
     return ScopeEmissionResponse.from(savedEmission);
   }
 
-  // ============================================================================
-  // 삭제 메서드
-  // ============================================================================
-
-  /**
-   * 배출량 데이터 삭제 (권한 검증 포함)
-   * 
-   * @param id             삭제할 데이터 ID
-   * @param userType       사용자 타입
-   * @param headquartersId 본사 ID
-   * @param partnerId      협력사 ID
-   * @param treePath       계층 경로
-   */
+  // 배출량 데이터 삭제
   @Transactional
   public void deleteScopeEmission(
       Long id,
@@ -537,34 +280,7 @@ public class ScopeEmissionService {
     }
   }
 
-  /**
-   * 제품 코드 매핑 처리
-   * 
-   * @param request 처리할 요청 데이터
-   */
-  private void processProductCodeMapping(ScopeEmissionRequest request) {
-    // 제품 코드 매핑이 설정된 경우에만 처리
-    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
-      if (request.getScopeType() == ScopeType.SCOPE3) {
-        throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
-      }
 
-      if (request.getCompanyProductCode() == null || request.getCompanyProductCode().trim().isEmpty()) {
-        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드는 필수입니다");
-      }
-
-      // 제품 코드 매핑 정보 조회
-      Optional<ProductCodeMapping> mapping = productCodeMappingRepository
-          .findByProductCode(request.getCompanyProductCode());
-
-      if (mapping.isPresent() && (request.getProductName() == null || request.getProductName().trim().isEmpty())) {
-        // 매핑 정보가 있고 제품명이 없는 경우 자동 설정
-        request.setProductName(mapping.get().getProductName());
-        log.debug("제품 코드 매핑을 통한 제품명 자동 설정: {} -> {}",
-            request.getCompanyProductCode(), request.getProductName());
-      }
-    }
-  }
 
   /**
    * Scope 배출량 엔티티 생성
@@ -596,7 +312,8 @@ public class ScopeEmissionService {
         .emissionFactor(request.getEmissionFactor())
         .totalEmission(request.getTotalEmission())
         .inputType(request.getInputType())
-        .hasProductMapping(request.getHasProductMapping());
+        .hasProductMapping(request.getHasProductMapping())
+        .factoryEnabled(request.getFactoryEnabled());
 
     // Scope 타입별 카테고리 설정
     switch (request.getScopeType()) {
@@ -728,6 +445,11 @@ public class ScopeEmissionService {
       }
     }
 
+    // 공장 설비 활성화 여부 업데이트
+    if (request.getFactoryEnabled() != null) {
+      builder.factoryEnabled(request.getFactoryEnabled());
+    }
+
     // 기존 필드 업데이트
     if (request.getMajorCategory() != null) {
       builder.majorCategory(request.getMajorCategory());
@@ -768,71 +490,4 @@ public class ScopeEmissionService {
     return builder.build();
   }
 
-  // ============================================================================
-  // 헬퍼 메서드
-  // ============================================================================
-
-  /**
-   * 카테고리 번호로 배출량 데이터 조회
-   */
-  private List<ScopeEmission> findByCategoryNumber(
-      Long headquartersId, Long partnerId, String treePath,
-      Integer year, Integer month, ScopeType scopeType, Integer categoryNumber,
-      boolean isHeadquarters) {
-
-    switch (scopeType) {
-      case SCOPE1:
-        if (isHeadquarters) {
-          return scopeEmissionRepository.findByHeadquartersIdAndScope1CategoryNumber(
-              headquartersId, categoryNumber);
-        } else {
-          return scopeEmissionRepository.findByPartnerIdAndTreePathStartingWithAndScope1CategoryNumber(
-              partnerId, treePath, categoryNumber);
-        }
-      case SCOPE2:
-        if (isHeadquarters) {
-          return scopeEmissionRepository.findByHeadquartersIdAndScope2CategoryNumber(
-              headquartersId, categoryNumber);
-        } else {
-          return scopeEmissionRepository.findByPartnerIdAndTreePathStartingWithAndScope2CategoryNumber(
-              partnerId, treePath, categoryNumber);
-        }
-      case SCOPE3:
-        if (isHeadquarters) {
-          return scopeEmissionRepository.findByHeadquartersIdAndScope3CategoryNumber(
-              headquartersId, categoryNumber);
-        } else {
-          return scopeEmissionRepository.findByPartnerIdAndTreePathStartingWithAndScope3CategoryNumber(
-              partnerId, treePath, categoryNumber);
-        }
-      default:
-        return List.of();
-    }
-  }
-
-  /**
-   * 카테고리별 총계 결과 조회
-   */
-  private List<Object[]> getCategorySummaryResults(
-      Long headquartersId, Long partnerId, String treePath,
-      ScopeType scopeType, Integer year, Integer month,
-      boolean isHeadquarters) {
-
-    switch (scopeType) {
-      case SCOPE1:
-      case SCOPE2:
-        // Scope 1, 2는 카테고리별 집계 기능이 제한적이므로 빈 리스트 반환
-        return List.of();
-      case SCOPE3:
-        if (isHeadquarters) {
-          return scopeEmissionRepository.sumTotalEmissionByScope3CategoryAndYearForHeadquarters(
-              headquartersId, year);
-        } else {
-          return scopeEmissionRepository.sumTotalEmissionByScope3CategoryAndYearForPartner(
-              partnerId, treePath, year);
-        }
-      default:
-        return List.of();
-    }
-  }
 }
