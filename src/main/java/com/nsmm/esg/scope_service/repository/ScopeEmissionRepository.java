@@ -34,30 +34,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
         // 본사ID + ScopeType으로 전체 조회
         List<ScopeEmission> findByHeadquartersIdAndScopeType(Long headquartersId, ScopeType scopeType);
 
-        // 본사ID + 연도 + 월로 전체 조회
-        List<ScopeEmission> findByHeadquartersIdAndReportingYearAndReportingMonth(
-                        Long headquartersId, Integer year, Integer month);
-
-        // 본사ID + ScopeType + 연도 + 월로 전체 조회
-        List<ScopeEmission> findByHeadquartersIdAndScopeTypeAndReportingYearAndReportingMonth(
-                        Long headquartersId, ScopeType scopeType, Integer year, Integer month);
-
-        // 협력사ID + 트리경로 + 연도 + 월로 전체 조회
-        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndReportingYearAndReportingMonth(
-                        Long partnerId, String treePath, Integer year, Integer month);
-
-        // 협력사ID + 트리경로 + ScopeType + 연도 + 월로 전체 조회
-        List<ScopeEmission> findByPartnerIdAndTreePathStartingWithAndScopeTypeAndReportingYearAndReportingMonth(
-                        Long partnerId, String treePath, ScopeType scopeType, Integer year, Integer month);
-
-        // 협력사ID + 정확한 트리경로 + 연도 + 월로 본인 데이터만 조회 (하위 조직 제외)
-        List<ScopeEmission> findByPartnerIdAndTreePathAndReportingYearAndReportingMonth(
-                        Long partnerId, String treePath, Integer year, Integer month);
-
-        // 협력사ID + 정확한 트리경로 + ScopeType + 연도 + 월로 본인 데이터만 조회 (하위 조직 제외)
-        List<ScopeEmission> findByPartnerIdAndTreePathAndScopeTypeAndReportingYearAndReportingMonth(
-                        Long partnerId, String treePath, ScopeType scopeType, Integer year, Integer month);
-
         // ========================================================================
         // 제품 매핑 관련 조회 메서드 (Product Mapping Query Methods)
         // ========================================================================
@@ -100,9 +76,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
 
         // 트리경로 + ScopeType으로 전체 조회
         List<ScopeEmission> findByTreePathStartingWithAndScopeType(String treePath, ScopeType scopeType);
-
-        // 정확한 트리경로 + ScopeType으로 본인 데이터만 조회 (하위 조직 제외)
-        List<ScopeEmission> findByTreePathAndScopeType(String treePath, ScopeType scopeType);
 
         // ========================================================================
         // 기본 집계 쿼리 (Basic Aggregation Queries)
@@ -452,6 +425,244 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("month") Integer month);
 
 
+
+        // ========================================================================
+        // 카테고리별 연간/월간 집계 쿼리 (Category Yearly/Monthly Aggregation)
+        // ========================================================================
+
+        /**
+         * Scope1 카테고리별 연간 배출량 집계 (본사 기준)
+         * 반환값: [categoryNumber, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope1CategoryNumber, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope1CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope1CategoryNumber " +
+               "ORDER BY s.scope1CategoryNumber")
+        List<Object[]> sumScope1EmissionByYearAndCategoryForHeadquarters(
+                @Param("headquartersId") Long headquartersId,
+                @Param("year") Integer year);
+
+        /**
+         * Scope1 카테고리별 연간 배출량 집계 (협력사 기준)
+         * 반환값: [categoryNumber, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope1CategoryNumber, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope1CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope1CategoryNumber " +
+               "ORDER BY s.scope1CategoryNumber")
+        List<Object[]> sumScope1EmissionByYearAndCategoryForPartner(
+                @Param("headquartersId") Long headquartersId,
+                @Param("treePath") String treePath,
+                @Param("year") Integer year);
+
+        /**
+         * Scope2 카테고리별 연간 배출량 집계 (본사 기준)
+         * 반환값: [categoryNumber, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope2CategoryNumber, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.scopeType = 'SCOPE2' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope2CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope2CategoryNumber " +
+               "ORDER BY s.scope2CategoryNumber")
+        List<Object[]> sumScope2EmissionByYearAndCategoryForHeadquarters(
+                @Param("headquartersId") Long headquartersId,
+                @Param("year") Integer year);
+
+        /**
+         * Scope2 카테고리별 연간 배출량 집계 (협력사 기준)
+         * 반환값: [categoryNumber, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope2CategoryNumber, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+               "AND s.scopeType = 'SCOPE2' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope2CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope2CategoryNumber " +
+               "ORDER BY s.scope2CategoryNumber")
+        List<Object[]> sumScope2EmissionByYearAndCategoryForPartner(
+                @Param("headquartersId") Long headquartersId,
+                @Param("treePath") String treePath,
+                @Param("year") Integer year);
+
+        /**
+         * Scope3 카테고리별 연간 배출량 집계 (본사 기준)
+         * 반환값: [categoryNumber, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope3CategoryNumber, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.scopeType = 'SCOPE3' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope3CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope3CategoryNumber " +
+               "ORDER BY s.scope3CategoryNumber")
+        List<Object[]> sumScope3EmissionByYearAndCategoryForHeadquarters(
+                @Param("headquartersId") Long headquartersId,
+                @Param("year") Integer year);
+
+        /**
+         * Scope3 카테고리별 연간 배출량 집계 (협력사 기준)
+         * 반환값: [categoryNumber, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope3CategoryNumber, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+               "AND s.scopeType = 'SCOPE3' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope3CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope3CategoryNumber " +
+               "ORDER BY s.scope3CategoryNumber")
+        List<Object[]> sumScope3EmissionByYearAndCategoryForPartner(
+                @Param("headquartersId") Long headquartersId,
+                @Param("treePath") String treePath,
+                @Param("year") Integer year);
+
+        /**
+         * Scope1 카테고리별 월간 배출량 집계 (본사 기준) - 연도의 모든 월
+         * 반환값: [categoryNumber, month, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope1CategoryNumber, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope1CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope1CategoryNumber, s.reportingMonth " +
+               "ORDER BY s.scope1CategoryNumber, s.reportingMonth")
+        List<Object[]> sumScope1EmissionByYearAndMonthAndCategoryForHeadquarters(
+                @Param("headquartersId") Long headquartersId,
+                @Param("year") Integer year);
+
+        /**
+         * Scope1 카테고리별 월간 배출량 집계 (협력사 기준) - 연도의 모든 월
+         * 반환값: [categoryNumber, month, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope1CategoryNumber, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope1CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope1CategoryNumber, s.reportingMonth " +
+               "ORDER BY s.scope1CategoryNumber, s.reportingMonth")
+        List<Object[]> sumScope1EmissionByYearAndMonthAndCategoryForPartner(
+                @Param("headquartersId") Long headquartersId,
+                @Param("treePath") String treePath,
+                @Param("year") Integer year);
+
+        /**
+         * Scope2 카테고리별 월간 배출량 집계 (본사 기준) - 연도의 모든 월
+         * 반환값: [categoryNumber, month, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope2CategoryNumber, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.scopeType = 'SCOPE2' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope2CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope2CategoryNumber, s.reportingMonth " +
+               "ORDER BY s.scope2CategoryNumber, s.reportingMonth")
+        List<Object[]> sumScope2EmissionByYearAndMonthAndCategoryForHeadquarters(
+                @Param("headquartersId") Long headquartersId,
+                @Param("year") Integer year);
+
+        /**
+         * Scope2 카테고리별 월간 배출량 집계 (협력사 기준) - 연도의 모든 월
+         * 반환값: [categoryNumber, month, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope2CategoryNumber, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+               "AND s.scopeType = 'SCOPE2' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope2CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope2CategoryNumber, s.reportingMonth " +
+               "ORDER BY s.scope2CategoryNumber, s.reportingMonth")
+        List<Object[]> sumScope2EmissionByYearAndMonthAndCategoryForPartner(
+                @Param("headquartersId") Long headquartersId,
+                @Param("treePath") String treePath,
+                @Param("year") Integer year);
+
+        /**
+         * Scope3 카테고리별 월간 배출량 집계 (본사 기준) - 연도의 모든 월
+         * 반환값: [categoryNumber, month, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope3CategoryNumber, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.scopeType = 'SCOPE3' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope3CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope3CategoryNumber, s.reportingMonth " +
+               "ORDER BY s.scope3CategoryNumber, s.reportingMonth")
+        List<Object[]> sumScope3EmissionByYearAndMonthAndCategoryForHeadquarters(
+                @Param("headquartersId") Long headquartersId,
+                @Param("year") Integer year);
+
+        /**
+         * Scope3 카테고리별 월간 배출량 집계 (협력사 기준) - 연도의 모든 월
+         * 반환값: [categoryNumber, month, totalEmission, dataCount]
+         */
+        @Query("SELECT s.scope3CategoryNumber, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.treePath LIKE CONCAT(:treePath, '%') " +
+               "AND s.scopeType = 'SCOPE3' " +
+               "AND s.reportingYear = :year " +
+               "AND s.scope3CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope3CategoryNumber, s.reportingMonth " +
+               "ORDER BY s.scope3CategoryNumber, s.reportingMonth")
+        List<Object[]> sumScope3EmissionByYearAndMonthAndCategoryForPartner(
+                @Param("headquartersId") Long headquartersId,
+                @Param("treePath") String treePath,
+                @Param("year") Integer year);
 
         // ========================================================================
         // 협력사별 월별 집계 쿼리 (Partner Monthly Aggregation)

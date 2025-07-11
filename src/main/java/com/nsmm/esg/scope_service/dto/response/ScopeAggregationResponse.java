@@ -53,9 +53,6 @@ public class ScopeAggregationResponse {
   @Schema(description = "집계 상세 정보")
   private AggregationDetails aggregationDetails;
 
-  @Schema(description = "제품별 배출량 집계 목록")
-  private List<ProductEmissionSummary> productSummaries;
-
   @Schema(description = "계층별 배출량 집계 목록")
   private List<HierarchicalEmissionSummary> hierarchicalSummaries;
 }

@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import jakarta.transaction.Transactional;
@@ -13,10 +14,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.nsmm.esg.scope_service.repository.ScopeEmissionRepository;
 import com.nsmm.esg.scope_service.dto.response.ScopeAggregationResponse;
-import com.nsmm.esg.scope_service.dto.response.ProductEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.HierarchicalEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.AggregationDetails;
 import com.nsmm.esg.scope_service.dto.response.MonthlyEmissionSummary;
+import com.nsmm.esg.scope_service.dto.response.CategoryYearlyEmission;
+import com.nsmm.esg.scope_service.dto.response.CategoryMonthlyEmission;
+import com.nsmm.esg.scope_service.dto.response.ScopeCategoryResponse;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 
 /**
@@ -56,21 +59,21 @@ public class ScopeAggregationService {
    */
   @Transactional
   public ScopeAggregationResponse getComprehensiveAggregation(
-      Long headquartersId, 
-      String userType, 
-      Long partnerId, 
-      String treePath, 
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      String treePath,
       Integer level,
-      Integer year, 
+      Integer year,
       Integer month) {
-    
-    log.info("종합 집계 시작 - 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 트리경로: {}, 레벨: {}, 연도: {}, 월: {}", 
+
+    log.info("종합 집계 시작 - 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 트리경로: {}, 레벨: {}, 연도: {}, 월: {}",
         headquartersId, userType, partnerId, treePath, level, year, month);
 
     try {
       // 사용자 타입에 따른 기본 Scope별 합계 조회
       BigDecimal scope1Total, scope2Total, scope3Total;
-      
+
       if ("HEADQUARTERS".equals(userType)) {
         // 본사: 전체 조직 데이터
         scope1Total = scopeEmissionRepository
@@ -94,7 +97,6 @@ public class ScopeAggregationService {
       BigDecimal scope3Cat2 = aggregateScope3Category2(headquartersId, userType, treePath, year, month);
       BigDecimal scope3Cat4 = aggregateScope3Category4(headquartersId, userType, treePath, year, month);
       BigDecimal scope3Cat5 = aggregateScope3Category5(headquartersId, userType, treePath, year, month);
-
 
       // 계층별 집계 (사용자 컨텍스트 적용)
       List<HierarchicalEmissionSummary> hierarchicalSummaries = getHierarchicalEmissionSummary(
@@ -140,13 +142,13 @@ public class ScopeAggregationService {
   public List<MonthlyEmissionSummary> getPartnerMonthlyEmissionSummary(
       Long partnerId,
       Integer year,
-      Long headquartersId, 
-      String userType, 
+      Long headquartersId,
+      String userType,
       Long requestPartnerId,
       String treePath,
       Integer level) {
-    
-    log.info("협력사별 월별 집계 시작 - 대상협력사ID: {}, 본사ID: {}, 사용자타입: {}, 요청자협력사ID: {}, 연도: {}", 
+
+    log.info("협력사별 월별 집계 시작 - 대상협력사ID: {}, 본사ID: {}, 사용자타입: {}, 요청자협력사ID: {}, 연도: {}",
         partnerId, headquartersId, userType, requestPartnerId, year);
 
     try {
@@ -154,7 +156,7 @@ public class ScopeAggregationService {
       validatePartnerAccess(partnerId, headquartersId, userType, requestPartnerId, treePath);
 
       List<MonthlyEmissionSummary> monthlyData = new ArrayList<>();
-      
+
       // 1월부터 현재월까지 반복 (또는 12월까지)
       int currentMonth = java.time.LocalDate.now().getMonthValue();
       int maxMonth = (year.equals(java.time.LocalDate.now().getYear())) ? currentMonth : 12;
@@ -171,18 +173,21 @@ public class ScopeAggregationService {
               .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(headquartersId, ScopeType.SCOPE2, year, month);
           scope3Total = scopeEmissionRepository
               .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(headquartersId, ScopeType.SCOPE3, year, month);
-          
+
           // 본사의 데이터 건수 조회 (전체 본사 데이터)
           dataCount = scopeEmissionRepository
               .countEmissionsByHeadquartersAndYearAndMonth(headquartersId, year, month);
         } else {
           // 협력사 데이터 조회
           scope1Total = scopeEmissionRepository
-              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE1, year, month);
+              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE1, year,
+                  month);
           scope2Total = scopeEmissionRepository
-              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE2, year, month);
+              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE2, year,
+                  month);
           scope3Total = scopeEmissionRepository
-              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE3, year, month);
+              .sumTotalEmissionByScopeTypeAndPartnerAndYearAndMonth(headquartersId, partnerId, ScopeType.SCOPE3, year,
+                  month);
 
           // 해당 협력사의 데이터 건수 조회
           dataCount = scopeEmissionRepository
@@ -213,7 +218,8 @@ public class ScopeAggregationService {
   /**
    * 협력사 데이터 접근 권한 검증
    */
-  private void validatePartnerAccess(Long partnerId, Long headquartersId, String userType, Long requestPartnerId, String treePath) {
+  private void validatePartnerAccess(Long partnerId, Long headquartersId, String userType, Long requestPartnerId,
+      String treePath) {
     // 본사는 모든 협력사 데이터에 접근 가능
     if ("HEADQUARTERS".equals(userType)) {
       return;
@@ -224,7 +230,7 @@ public class ScopeAggregationService {
       if (partnerId.equals(requestPartnerId)) {
         return; // 본인 데이터는 접근 가능
       }
-      
+
       // 하위 협력사인지 확인 (treePath 기반)
       // 실제 구현에서는 더 정확한 tree_path 검증 로직 필요
       // 현재는 기본적인 접근 허용
@@ -240,9 +246,11 @@ public class ScopeAggregationService {
 
   /**
    * Scope 3 Cat.1 집계 (사용자 컨텍스트 기반)
-   * = (Scope1 factoryEnabled=false 비공장설비) + (Scope2 factoryEnabled=false 비공장설비) + Scope3 Cat.1
+   * = (Scope1 factoryEnabled=false 비공장설비) + (Scope2 factoryEnabled=false 비공장설비) +
+   * Scope3 Cat.1
    */
-  public BigDecimal aggregateScope3Category1(Long headquartersId, String userType, String treePath, Integer year, Integer month) {
+  public BigDecimal aggregateScope3Category1(Long headquartersId, String userType, String treePath, Integer year,
+      Integer month) {
     log.debug("Scope 3 Cat.1 집계 시작 - 본사ID: {}, 사용자타입: {}, 트리경로: {}", headquartersId, userType, treePath);
 
     BigDecimal scope1NonFactory, scope2NonFactory, scope3Cat1;
@@ -254,9 +262,12 @@ public class ScopeAggregationService {
       scope3Cat1 = scopeEmissionRepository.sumScope3EmissionByCategory(headquartersId, 1, year, month);
     } else {
       // 협력사: 트리 경로 하위 데이터만
-      scope1NonFactory = scopeEmissionRepository.sumScope1EmissionByFactoryDisabledForPartner(headquartersId, treePath, year, month);
-      scope2NonFactory = scopeEmissionRepository.sumScope2EmissionByFactoryDisabledForPartner(headquartersId, treePath, year, month);
-      scope3Cat1 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 1, year, month);
+      scope1NonFactory = scopeEmissionRepository.sumScope1EmissionByFactoryDisabledForPartner(headquartersId, treePath,
+          year, month);
+      scope2NonFactory = scopeEmissionRepository.sumScope2EmissionByFactoryDisabledForPartner(headquartersId, treePath,
+          year, month);
+      scope3Cat1 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 1, year,
+          month);
     }
 
     BigDecimal result = scope1NonFactory.add(scope2NonFactory).add(scope3Cat1);
@@ -266,9 +277,11 @@ public class ScopeAggregationService {
 
   /**
    * Scope 3 Cat.2 집계 (사용자 컨텍스트 기반)
-   * = Scope1 factoryEnabled=true 공장설비 + Scope2 factoryEnabled=true 공장설비 + Scope3 Cat.2
+   * = Scope1 factoryEnabled=true 공장설비 + Scope2 factoryEnabled=true 공장설비 + Scope3
+   * Cat.2
    */
-  public BigDecimal aggregateScope3Category2(Long headquartersId, String userType, String treePath, Integer year, Integer month) {
+  public BigDecimal aggregateScope3Category2(Long headquartersId, String userType, String treePath, Integer year,
+      Integer month) {
     log.debug("Scope 3 Cat.2 집계 시작 - 본사ID: {}, 사용자타입: {}, 트리경로: {}", headquartersId, userType, treePath);
 
     BigDecimal scope1Factory, scope2Factory, scope3Cat2;
@@ -280,9 +293,12 @@ public class ScopeAggregationService {
       scope3Cat2 = scopeEmissionRepository.sumScope3EmissionByCategory(headquartersId, 2, year, month);
     } else {
       // 협력사: 트리 경로 하위 데이터만
-      scope1Factory = scopeEmissionRepository.sumScope1EmissionByFactoryEnabledForPartner(headquartersId, treePath, year, month);
-      scope2Factory = scopeEmissionRepository.sumScope2EmissionByFactoryEnabledForPartner(headquartersId, treePath, year, month);
-      scope3Cat2 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 2, year, month);
+      scope1Factory = scopeEmissionRepository.sumScope1EmissionByFactoryEnabledForPartner(headquartersId, treePath,
+          year, month);
+      scope2Factory = scopeEmissionRepository.sumScope2EmissionByFactoryEnabledForPartner(headquartersId, treePath,
+          year, month);
+      scope3Cat2 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 2, year,
+          month);
     }
 
     BigDecimal result = scope1Factory.add(scope2Factory).add(scope3Cat2);
@@ -294,7 +310,8 @@ public class ScopeAggregationService {
    * Scope 3 Cat.4 집계 (사용자 컨텍스트 기반)
    * = Scope1 이동연소 + Scope3 Cat.4
    */
-  public BigDecimal aggregateScope3Category4(Long headquartersId, String userType, String treePath, Integer year, Integer month) {
+  public BigDecimal aggregateScope3Category4(Long headquartersId, String userType, String treePath, Integer year,
+      Integer month) {
     log.debug("Scope 3 Cat.4 집계 시작 - 본사ID: {}, 사용자타입: {}, 트리경로: {}", headquartersId, userType, treePath);
 
     BigDecimal scope1Mobile, scope3Cat4;
@@ -305,8 +322,10 @@ public class ScopeAggregationService {
       scope3Cat4 = scopeEmissionRepository.sumScope3EmissionByCategory(headquartersId, 4, year, month);
     } else {
       // 협력사: 트리 경로 하위 데이터만
-      scope1Mobile = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "이동연소", year, month);
-      scope3Cat4 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 4, year, month);
+      scope1Mobile = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "이동연소", year,
+          month);
+      scope3Cat4 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 4, year,
+          month);
     }
 
     BigDecimal result = scope1Mobile.add(scope3Cat4);
@@ -318,7 +337,8 @@ public class ScopeAggregationService {
    * Scope 3 Cat.5 집계 (사용자 컨텍스트 기반)
    * = Scope1 폐수처리 + Scope3 Cat.5
    */
-  public BigDecimal aggregateScope3Category5(Long headquartersId, String userType, String treePath, Integer year, Integer month) {
+  public BigDecimal aggregateScope3Category5(Long headquartersId, String userType, String treePath, Integer year,
+      Integer month) {
     log.debug("Scope 3 Cat.5 집계 시작 - 본사ID: {}, 사용자타입: {}, 트리경로: {}", headquartersId, userType, treePath);
 
     BigDecimal scope1Waste, scope3Cat5;
@@ -329,16 +349,16 @@ public class ScopeAggregationService {
       scope3Cat5 = scopeEmissionRepository.sumScope3EmissionByCategory(headquartersId, 5, year, month);
     } else {
       // 협력사: 트리 경로 하위 데이터만
-      scope1Waste = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "공정배출", year, month);
-      scope3Cat5 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 5, year, month);
+      scope1Waste = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "공정배출", year,
+          month);
+      scope3Cat5 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 5, year,
+          month);
     }
 
     BigDecimal result = scope1Waste.add(scope3Cat5);
     log.debug("Scope 3 Cat.5 집계 완료 - 사용자타입: {}, 결과: {}", userType, result);
     return result;
   }
-
-
 
   // ========================================================================
   // 계층적 집계 메서드 (Hierarchical Aggregation)
@@ -350,12 +370,12 @@ public class ScopeAggregationService {
    */
   @Transactional
   public List<HierarchicalEmissionSummary> getHierarchicalEmissionSummary(
-      Long headquartersId, 
+      Long headquartersId,
       String userType,
       Long partnerId,
-      String baseTreePath, 
+      String baseTreePath,
       Integer level,
-      Integer year, 
+      Integer year,
       Integer month) {
 
     log.debug("계층적 집계 시작 - 본사ID: {}, 사용자타입: {}, 기준경로: {}", headquartersId, userType, baseTreePath);
@@ -433,7 +453,8 @@ public class ScopeAggregationService {
   /**
    * 집계 상세 정보 생성 (사용자 컨텍스트 기반)
    */
-  private AggregationDetails createAggregationDetails(Long headquartersId, String userType, String treePath, Integer year, Integer month) {
+  private AggregationDetails createAggregationDetails(Long headquartersId, String userType, String treePath,
+      Integer year, Integer month) {
     log.debug("집계 상세 정보 생성 시작 - 본사ID: {}, 사용자타입: {}, 트리경로: {}", headquartersId, userType, treePath);
 
     try {
@@ -447,12 +468,12 @@ public class ScopeAggregationService {
         scope1Mobile = scopeEmissionRepository.sumScope1EmissionByGroup(headquartersId, "이동연소", year, month);
         scope1Process = scopeEmissionRepository.sumScope1EmissionByGroup(headquartersId, "공정배출", year, month);
         scope1Factory = scopeEmissionRepository.sumScope1EmissionByGroup(headquartersId, "공장설비", year, month);
-        
+
         scope1FactoryEnabled = scopeEmissionRepository.sumScope1EmissionByFactoryEnabled(headquartersId, year, month);
         scope1FactoryDisabled = scopeEmissionRepository.sumScope1EmissionByFactoryDisabled(headquartersId, year, month);
         scope2FactoryEnabled = scopeEmissionRepository.sumScope2EmissionByFactoryEnabled(headquartersId, year, month);
         scope2FactoryDisabled = scopeEmissionRepository.sumScope2EmissionByFactoryDisabled(headquartersId, year, month);
-        
+
         scope2Total = scopeEmissionRepository.sumScope2TotalEmission(headquartersId, year, month);
         scope3Cat1 = scopeEmissionRepository.sumScope3EmissionByCategory(headquartersId, 1, year, month);
         scope3Cat2 = scopeEmissionRepository.sumScope3EmissionByCategory(headquartersId, 2, year, month);
@@ -460,21 +481,33 @@ public class ScopeAggregationService {
         scope3Cat5 = scopeEmissionRepository.sumScope3EmissionByCategory(headquartersId, 5, year, month);
       } else {
         // 협력사: 트리 경로 하위 데이터만
-        scope1Fixed = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "고정연소", year, month);
-        scope1Mobile = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "이동연소", year, month);
-        scope1Process = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "공정배출", year, month);
-        scope1Factory = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "공장설비", year, month);
-        
-        scope1FactoryEnabled = scopeEmissionRepository.sumScope1EmissionByFactoryEnabledForPartner(headquartersId, treePath, year, month);
-        scope1FactoryDisabled = scopeEmissionRepository.sumScope1EmissionByFactoryDisabledForPartner(headquartersId, treePath, year, month);
-        scope2FactoryEnabled = scopeEmissionRepository.sumScope2EmissionByFactoryEnabledForPartner(headquartersId, treePath, year, month);
-        scope2FactoryDisabled = scopeEmissionRepository.sumScope2EmissionByFactoryDisabledForPartner(headquartersId, treePath, year, month);
-        
+        scope1Fixed = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "고정연소", year,
+            month);
+        scope1Mobile = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "이동연소",
+            year, month);
+        scope1Process = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "공정배출",
+            year, month);
+        scope1Factory = scopeEmissionRepository.sumScope1EmissionByGroupForPartner(headquartersId, treePath, "공장설비",
+            year, month);
+
+        scope1FactoryEnabled = scopeEmissionRepository.sumScope1EmissionByFactoryEnabledForPartner(headquartersId,
+            treePath, year, month);
+        scope1FactoryDisabled = scopeEmissionRepository.sumScope1EmissionByFactoryDisabledForPartner(headquartersId,
+            treePath, year, month);
+        scope2FactoryEnabled = scopeEmissionRepository.sumScope2EmissionByFactoryEnabledForPartner(headquartersId,
+            treePath, year, month);
+        scope2FactoryDisabled = scopeEmissionRepository.sumScope2EmissionByFactoryDisabledForPartner(headquartersId,
+            treePath, year, month);
+
         scope2Total = scopeEmissionRepository.sumScope2TotalEmissionForPartner(headquartersId, treePath, year, month);
-        scope3Cat1 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 1, year, month);
-        scope3Cat2 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 2, year, month);
-        scope3Cat4 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 4, year, month);
-        scope3Cat5 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 5, year, month);
+        scope3Cat1 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 1, year,
+            month);
+        scope3Cat2 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 2, year,
+            month);
+        scope3Cat4 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 4, year,
+            month);
+        scope3Cat5 = scopeEmissionRepository.sumScope3EmissionByCategoryForPartner(headquartersId, treePath, 5, year,
+            month);
       }
 
       // Cat.1 계산을 위한 포함/제외 값 (factoryEnabled 기반)
@@ -513,6 +546,245 @@ public class ScopeAggregationService {
           .cat5Scope1Waste(BigDecimal.ZERO)
           .cat5Scope3Original(BigDecimal.ZERO)
           .build();
+    }
+  }
+
+  // ========================================================================
+  // 카테고리별 연간/월간 집계 메서드 (Category Yearly/Monthly Aggregation)
+  // ========================================================================
+
+  /**
+   * 카테고리별 연간 배출량 집계
+   * 
+   * @param scopeType      Scope 타입 (SCOPE1, SCOPE2, SCOPE3)
+   * @param year           보고 연도
+   * @param headquartersId 본사 ID
+   * @param userType       사용자 타입 (HEADQUARTERS | PARTNER)
+   * @param partnerId      파트너사 ID (파트너사인 경우)
+   * @param treePath       계층 경로
+   * @param level          계층 레벨
+   * @return 카테고리별 연간 배출량 목록
+   */
+  @Transactional
+  public List<CategoryYearlyEmission> getCategoryYearlyEmissions(
+      ScopeType scopeType,
+      Integer year,
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      String treePath,
+      Integer level) {
+
+    log.info("카테고리별 연간 집계 시작 - Scope: {}, 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+        scopeType, year, headquartersId, userType, partnerId);
+
+    try {
+      List<Object[]> results = new ArrayList<>();
+
+      // 사용자 타입에 따라 적절한 쿼리 메서드 호출
+      if ("HEADQUARTERS".equals(userType)) {
+        // 본사인 경우 본사 전체 데이터 집계
+        switch (scopeType) {
+          case SCOPE1:
+            results = scopeEmissionRepository.sumScope1EmissionByYearAndCategoryForHeadquarters(headquartersId, year);
+            break;
+          case SCOPE2:
+            results = scopeEmissionRepository.sumScope2EmissionByYearAndCategoryForHeadquarters(headquartersId, year);
+            break;
+          case SCOPE3:
+            results = scopeEmissionRepository.sumScope3EmissionByYearAndCategoryForHeadquarters(headquartersId, year);
+            break;
+        }
+      } else {
+        // 파트너사인 경우 트리 경로 기반 데이터 집계
+        if (treePath == null || treePath.isEmpty()) {
+          log.warn("파트너사 요청이지만 treePath가 없습니다");
+          return new ArrayList<>();
+        }
+
+        switch (scopeType) {
+          case SCOPE1:
+            results = scopeEmissionRepository.sumScope1EmissionByYearAndCategoryForPartner(headquartersId, treePath,
+                year);
+            break;
+          case SCOPE2:
+            results = scopeEmissionRepository.sumScope2EmissionByYearAndCategoryForPartner(headquartersId, treePath,
+                year);
+            break;
+          case SCOPE3:
+            results = scopeEmissionRepository.sumScope3EmissionByYearAndCategoryForPartner(headquartersId, treePath,
+                year);
+            break;
+        }
+      }
+
+      // 모든 카테고리의 총 배출량 합계 계산
+      BigDecimal totalSumAllCategories = results.stream()
+          .map(row -> (BigDecimal) row[1]) // totalEmission
+          .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+      // Object[] 결과를 CategoryYearlyEmission DTO로 변환
+      List<CategoryYearlyEmission> categoryEmissions = results.stream()
+          .map(row -> {
+            Integer categoryNumber = (Integer) row[0];
+            BigDecimal totalEmission = (BigDecimal) row[1];
+            Long dataCount = (Long) row[2];
+
+            // 카테고리명 가져오기
+            String categoryName = getCategoryNameByNumber(scopeType, categoryNumber);
+
+            return CategoryYearlyEmission.builder()
+                .categoryNumber(categoryNumber)
+                .categoryName(categoryName)
+                .year(year)
+                .totalEmission(totalEmission)
+                .dataCount(dataCount)
+                .scopeType(scopeType.name())
+                .totalSumAllCategories(totalSumAllCategories)
+                .build();
+          })
+          .collect(Collectors.toList());
+
+      log.info("카테고리별 연간 집계 완료 - Scope: {}, 카테고리 수: {}", scopeType, categoryEmissions.size());
+      return categoryEmissions;
+
+    } catch (Exception e) {
+      log.error("카테고리별 연간 집계 중 오류 발생 - Scope: {}, 연도: {}: {}", scopeType, year, e.getMessage(), e);
+      return new ArrayList<>();
+    }
+  }
+
+  /**
+   * 카테고리별 월간 배출량 집계 (연도의 모든 월)
+   * 
+   * @param scopeType      Scope 타입 (SCOPE1, SCOPE2, SCOPE3)
+   * @param year           보고 연도
+   * @param headquartersId 본사 ID
+   * @param userType       사용자 타입 (HEADQUARTERS | PARTNER)
+   * @param partnerId      파트너사 ID (파트너사인 경우)
+   * @param treePath       계층 경로
+   * @param level          계층 레벨
+   * @return 카테고리별 월간 배출량 목록
+   */
+  @Transactional
+  public List<CategoryMonthlyEmission> getCategoryMonthlyEmissions(
+      ScopeType scopeType,
+      Integer year,
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      String treePath,
+      Integer level) {
+
+    log.info("카테고리별 월간 집계 시작 - Scope: {}, 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+        scopeType, year, headquartersId, userType, partnerId);
+
+    try {
+      List<Object[]> results = new ArrayList<>();
+
+      // 사용자 타입에 따라 적절한 쿼리 메서드 호출
+      if ("HEADQUARTERS".equals(userType)) {
+        // 본사인 경우 본사 전체 데이터 집계
+        switch (scopeType) {
+          case SCOPE1:
+            results = scopeEmissionRepository.sumScope1EmissionByYearAndMonthAndCategoryForHeadquarters(headquartersId,
+                year);
+            break;
+          case SCOPE2:
+            results = scopeEmissionRepository.sumScope2EmissionByYearAndMonthAndCategoryForHeadquarters(headquartersId,
+                year);
+            break;
+          case SCOPE3:
+            results = scopeEmissionRepository.sumScope3EmissionByYearAndMonthAndCategoryForHeadquarters(headquartersId,
+                year);
+            break;
+        }
+      } else {
+        // 파트너사인 경우 트리 경로 기반 데이터 집계
+        if (treePath == null || treePath.isEmpty()) {
+          log.warn("파트너사 요청이지만 treePath가 없습니다");
+          return new ArrayList<>();
+        }
+
+        switch (scopeType) {
+          case SCOPE1:
+            results = scopeEmissionRepository.sumScope1EmissionByYearAndMonthAndCategoryForPartner(headquartersId,
+                treePath, year);
+            break;
+          case SCOPE2:
+            results = scopeEmissionRepository.sumScope2EmissionByYearAndMonthAndCategoryForPartner(headquartersId,
+                treePath, year);
+            break;
+          case SCOPE3:
+            results = scopeEmissionRepository.sumScope3EmissionByYearAndMonthAndCategoryForPartner(headquartersId,
+                treePath, year);
+            break;
+        }
+      }
+
+      // 월별로 그룹화하여 각 월의 총합 계산
+      Map<Integer, BigDecimal> monthlyTotals = results.stream()
+          .collect(Collectors.groupingBy(
+              row -> (Integer) row[1], // month
+              Collectors.reducing(
+                  BigDecimal.ZERO,
+                  row -> (BigDecimal) row[2], // totalEmission
+                  BigDecimal::add)));
+
+      // Object[] 결과를 CategoryMonthlyEmission DTO로 변환
+      List<CategoryMonthlyEmission> categoryEmissions = results.stream()
+          .map(row -> {
+            Integer categoryNumber = (Integer) row[0];
+            Integer month = (Integer) row[1];
+            BigDecimal totalEmission = (BigDecimal) row[2];
+            Long dataCount = (Long) row[3];
+
+            // 카테고리명 가져오기
+            String categoryName = getCategoryNameByNumber(scopeType, categoryNumber);
+
+            // 해당 월의 모든 카테고리 총합
+            BigDecimal totalSumAllCategories = monthlyTotals.getOrDefault(month, BigDecimal.ZERO);
+
+            return CategoryMonthlyEmission.builder()
+                .categoryNumber(categoryNumber)
+                .categoryName(categoryName)
+                .year(year)
+                .month(month)
+                .totalEmission(totalEmission)
+                .dataCount(dataCount)
+                .scopeType(scopeType.name())
+                .totalSumAllCategories(totalSumAllCategories)
+                .build();
+          })
+          .collect(Collectors.toList());
+
+      log.info("카테고리별 월간 집계 완료 - Scope: {}, 데이터 수: {}", scopeType, categoryEmissions.size());
+      return categoryEmissions;
+
+    } catch (Exception e) {
+      log.error("카테고리별 월간 집계 중 오류 발생 - Scope: {}, 연도: {}: {}", scopeType, year, e.getMessage(), e);
+      return new ArrayList<>();
+    }
+  }
+
+  /**
+   * Scope 타입과 카테고리 번호로 카테고리명 조회
+   * 
+   * @param scopeType      Scope 타입
+   * @param categoryNumber 카테고리 번호
+   * @return 카테고리명
+   */
+  private String getCategoryNameByNumber(ScopeType scopeType, Integer categoryNumber) {
+    try {
+      List<ScopeCategoryResponse> categories = ScopeCategoryResponse.getAllCategoriesByScope(scopeType);
+      return categories.stream()
+          .filter(category -> category.getCategoryNumber().equals(categoryNumber))
+          .map(ScopeCategoryResponse::getCategoryName)
+          .findFirst()
+          .orElse("Unknown Category");
+    } catch (Exception e) {
+      log.warn("카테고리명 조회 실패 - Scope: {}, 번호: {}: {}", scopeType, categoryNumber, e.getMessage());
+      return "Unknown Category";
     }
   }
 
