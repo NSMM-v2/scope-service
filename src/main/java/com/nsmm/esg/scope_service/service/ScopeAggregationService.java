@@ -185,37 +185,34 @@ public class ScopeAggregationService {
 
       // 사용자 타입에 따라 적절한 쿼리 메서드 호출
       if ("HEADQUARTERS".equals(userType)) {
-        // 본사인 경우 본사 전체 데이터 집계
+        // 본사인 경우 본사 직접 입력 데이터만 집계
         switch (scopeType) {
           case SCOPE1:
-            results = scopeEmissionRepository.sumScope1EmissionByYearAndCategoryForHeadquarters(headquartersId, year);
+            results = scopeEmissionRepository.sumScope1EmissionByYearAndCategoryForHeadquartersOnly(headquartersId, year);
             break;
           case SCOPE2:
-            results = scopeEmissionRepository.sumScope2EmissionByYearAndCategoryForHeadquarters(headquartersId, year);
+            results = scopeEmissionRepository.sumScope2EmissionByYearAndCategoryForHeadquartersOnly(headquartersId, year);
             break;
           case SCOPE3:
-            results = scopeEmissionRepository.sumScope3EmissionByYearAndCategoryForHeadquarters(headquartersId, year);
+            results = scopeEmissionRepository.sumScope3EmissionByYearAndCategoryForHeadquartersOnly(headquartersId, year);
             break;
         }
       } else {
-        // 파트너사인 경우 트리 경로 기반 데이터 집계
-        if (treePath == null || treePath.isEmpty()) {
-          log.warn("파트너사 요청이지만 treePath가 없습니다");
+        // 파트너사인 경우 해당 파트너사 데이터만 집계
+        if (partnerId == null) {
+          log.warn("파트너사 요청이지만 partnerId가 없습니다");
           return new ArrayList<>();
         }
 
         switch (scopeType) {
           case SCOPE1:
-            results = scopeEmissionRepository.sumScope1EmissionByYearAndCategoryForPartner(headquartersId, treePath,
-                year);
+            results = scopeEmissionRepository.sumScope1EmissionByYearAndCategoryForSpecificPartner(headquartersId, partnerId, year);
             break;
           case SCOPE2:
-            results = scopeEmissionRepository.sumScope2EmissionByYearAndCategoryForPartner(headquartersId, treePath,
-                year);
+            results = scopeEmissionRepository.sumScope2EmissionByYearAndCategoryForSpecificPartner(headquartersId, partnerId, year);
             break;
           case SCOPE3:
-            results = scopeEmissionRepository.sumScope3EmissionByYearAndCategoryForPartner(headquartersId, treePath,
-                year);
+            results = scopeEmissionRepository.sumScope3EmissionByYearAndCategoryForSpecificPartner(headquartersId, partnerId, year);
             break;
         }
       }
@@ -286,40 +283,40 @@ public class ScopeAggregationService {
 
       // 사용자 타입에 따라 적절한 쿼리 메서드 호출
       if ("HEADQUARTERS".equals(userType)) {
-        // 본사인 경우 본사 전체 데이터 집계
+        // 본사인 경우 본사 직접 입력 데이터만 집계
         switch (scopeType) {
           case SCOPE1:
-            results = scopeEmissionRepository.sumScope1EmissionByYearAndMonthAndCategoryForHeadquarters(headquartersId,
+            results = scopeEmissionRepository.sumScope1EmissionByYearAndMonthAndCategoryForHeadquartersOnly(headquartersId,
                 year);
             break;
           case SCOPE2:
-            results = scopeEmissionRepository.sumScope2EmissionByYearAndMonthAndCategoryForHeadquarters(headquartersId,
+            results = scopeEmissionRepository.sumScope2EmissionByYearAndMonthAndCategoryForHeadquartersOnly(headquartersId,
                 year);
             break;
           case SCOPE3:
-            results = scopeEmissionRepository.sumScope3EmissionByYearAndMonthAndCategoryForHeadquarters(headquartersId,
+            results = scopeEmissionRepository.sumScope3EmissionByYearAndMonthAndCategoryForHeadquartersOnly(headquartersId,
                 year);
             break;
         }
       } else {
-        // 파트너사인 경우 트리 경로 기반 데이터 집계
-        if (treePath == null || treePath.isEmpty()) {
-          log.warn("파트너사 요청이지만 treePath가 없습니다");
+        // 파트너사인 경우 해당 파트너사 데이터만 집계
+        if (partnerId == null) {
+          log.warn("파트너사 요청이지만 partnerId가 없습니다");
           return new ArrayList<>();
         }
 
         switch (scopeType) {
           case SCOPE1:
-            results = scopeEmissionRepository.sumScope1EmissionByYearAndMonthAndCategoryForPartner(headquartersId,
-                treePath, year);
+            results = scopeEmissionRepository.sumScope1EmissionByYearAndMonthAndCategoryForSpecificPartner(headquartersId,
+                partnerId, year);
             break;
           case SCOPE2:
-            results = scopeEmissionRepository.sumScope2EmissionByYearAndMonthAndCategoryForPartner(headquartersId,
-                treePath, year);
+            results = scopeEmissionRepository.sumScope2EmissionByYearAndMonthAndCategoryForSpecificPartner(headquartersId,
+                partnerId, year);
             break;
           case SCOPE3:
-            results = scopeEmissionRepository.sumScope3EmissionByYearAndMonthAndCategoryForPartner(headquartersId,
-                treePath, year);
+            results = scopeEmissionRepository.sumScope3EmissionByYearAndMonthAndCategoryForSpecificPartner(headquartersId,
+                partnerId, year);
             break;
         }
       }

@@ -150,40 +150,6 @@ public class ScopeEmissionController {
   // 조회 API (Query APIs)
   // ========================================================================
 
-  // 특정 배출량 데이터 조회
-  @Operation(summary = "Scope 배출량 단건 조회", description = "ID로 Scope 배출량 데이터를 조회합니다.")
-  @GetMapping("/emissions/{id}")
-  public ResponseEntity<ApiResponse<ScopeEmissionResponse>> getScopeEmissionById(
-      @PathVariable Long id,
-      @RequestHeader("X-ACCOUNT-NUMBER") String accountNumber,
-      @RequestHeader("X-USER-TYPE") String userType,
-      @RequestHeader("X-TREE-PATH") String treePath) {
-
-    log.info("Scope 배출량 상세 조회 요청: id={}, accountNumber={}, userType={}", id, accountNumber, userType);
-    logHeaders("Scope 배출량 상세 조회", userType, null, null, treePath);
-
-    try {
-      ScopeEmissionResponse response = scopeEmissionService.getScopeEmissionById(id, accountNumber, userType, treePath);
-      return ResponseEntity.ok(ApiResponse.success(response, "Scope 배출량 데이터를 조회했습니다."));
-    } catch (IllegalArgumentException e) {
-      log.error("Scope 배출량 조회 실패: {}", e.getMessage());
-      if (e.getMessage() != null && e.getMessage().contains("찾을 수 없습니다")) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(ApiResponse.error(e.getMessage(), ErrorCode.EMISSION_DATA_NOT_FOUND.getCode()));
-      } else if (e.getMessage() != null && e.getMessage().contains("권한")) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-            .body(ApiResponse.error(e.getMessage(), ErrorCode.ACCESS_DENIED.getCode()));
-      } else {
-        return ResponseEntity.badRequest()
-            .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
-      }
-    } catch (Exception e) {
-      log.error("Scope 배출량 조회 중 서버 오류: {}", e.getMessage());
-      return ResponseEntity.internalServerError()
-          .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
-    }
-  }
-
   // Scope 타입별 배출량 데이터 조회
   @Operation(summary = "Scope 타입별 배출량 조회", description = "특정 Scope 타입의 배출량 데이터를 조회합니다.")
   @GetMapping("/emissions/scope/{scopeType}")
@@ -222,43 +188,6 @@ public class ScopeEmissionController {
     }
   }
 
-
-
-  // ========================================================================
-  // 집계 및 요약 API (Summary & Aggregation APIs)
-  // ========================================================================
-
-  // 특정 Scope의 카테고리별 총계 조회
-  @Operation(summary = "Scope 카테고리별 총계 조회", description = "특정 Scope의 카테고리별 총 배출량을 조회합니다.")
-  @GetMapping("/emissions/summary/scope/{scopeType}/year/{year}/month/{month}")
-  public ResponseEntity<ApiResponse<Map<Integer, BigDecimal>>> getCategorySummaryByScope(
-      @PathVariable ScopeType scopeType,
-      @PathVariable Integer year,
-      @PathVariable Integer month,
-      @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
-      @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
-      @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
-      @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
-
-    log.info("Scope {} 카테고리별 총계 조회 요청: year={}, month={}, userType={}", scopeType, year, month, userType);
-    logHeaders("Scope 카테고리별 총계 조회", userType, headquartersId, partnerId, treePath);
-
-    try {
-      Map<Integer, BigDecimal> response = scopeEmissionService.getCategorySummaryByScope(
-          scopeType, year, month, userType, headquartersId, partnerId, treePath);
-      return ResponseEntity.ok(ApiResponse.success(response,
-          String.format("%d년 %d월 %s 카테고리별 배출량 총계를 조회했습니다.",
-              year, month, scopeType.getDescription())));
-    } catch (IllegalArgumentException e) {
-      log.error("Scope {} 카테고리별 총계 조회 실패: {}", scopeType, e.getMessage());
-      return ResponseEntity.badRequest()
-          .body(ApiResponse.error(e.getMessage(), "INVALID_REQUEST"));
-    } catch (Exception e) {
-      log.error("Scope {} 카테고리별 총계 조회 중 오류 발생", scopeType, e);
-      return ResponseEntity.internalServerError()
-          .body(ApiResponse.error("카테고리별 총계 조회 중 오류가 발생했습니다.", "CATEGORY_SUMMARY_FETCH_ERROR"));
-    }
-  }
 
   // ========================================================================
   // 업데이트 API (Update APIs)

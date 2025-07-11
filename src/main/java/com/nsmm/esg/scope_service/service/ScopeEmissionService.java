@@ -14,9 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 // ============================================================================
@@ -109,38 +107,6 @@ public class ScopeEmissionService {
   // 조회 메서드
   // ============================================================================
 
-  // 특정 배출량 데이터 조회 (권한 검증 포함)
-  public ScopeEmissionResponse getScopeEmissionById(Long id, String accountNumber, String userType, String treePath) {
-    log.info("배출량 데이터 조회: id={}, accountNumber={}, userType={}", id, accountNumber, userType);
-
-    ScopeEmission emission = scopeEmissionRepository.findById(id)
-        .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + id));
-
-    // 강화된 권한 검증: 본사와 협력사 모두 본인 데이터만 접근 가능
-    if ("HEADQUARTERS".equals(userType)) {
-      // 본사: 본인의 본사 데이터만 접근 허용 (partnerId가 null인 데이터)
-      if (emission.getPartnerId() != null) {
-        throw new IllegalArgumentException("본사는 본인의 데이터만 접근할 수 있습니다");
-      }
-      // 추가 검증: 헤더의 accountNumber와 요청된 데이터 소유자가 동일한지 확인 가능
-      log.info("본사 권한 검증 통과: 본사 데이터 접근");
-    } else if ("PARTNER".equals(userType)) {
-      // 협력사: 본인의 협력사 데이터만 접근 허용
-      if (emission.getPartnerId() == null) {
-        throw new IllegalArgumentException("협력사는 본인의 데이터만 접근할 수 있습니다");
-      }
-      // treePath 검증도 유지 (이중 보안)
-      if (!emission.getTreePath().startsWith(treePath)) {
-        throw new IllegalArgumentException("해당 데이터에 접근할 권한이 없습니다");
-      }
-      log.info("협력사 권한 검증 통과: partnerId={}, treePath 일치", emission.getPartnerId());
-    } else {
-      throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
-    }
-
-    return ScopeEmissionResponse.from(emission);
-  }
-
   // Scope 타입별 배출량 데이터 조회 (본인 데이터만)
   public List<ScopeEmissionResponse> getEmissionsByScope(
       ScopeType scopeType,
@@ -173,34 +139,7 @@ public class ScopeEmissionService {
         .collect(Collectors.toList());
   }
 
-  // 특정 Scope의 카테고리별 총계 조회
-  public Map<Integer, BigDecimal> getCategorySummaryByScope(
-      ScopeType scopeType,
-      Integer year,
-      Integer month,
-      String userType,
-      String headquartersId,
-      String partnerId,
-      String treePath) {
 
-    log.info("Scope {} 카테고리별 총계 조회: year={}, month={}", scopeType, year, month);
-    validateUserPermissions(userType, headquartersId, partnerId, treePath);
-
-    List<Object[]> results;
-    if ("HEADQUARTERS".equals(userType)) {
-      results = getCategorySummaryResults(Long.parseLong(headquartersId), null, treePath,
-          scopeType, year, month, true);
-    } else {
-      results = getCategorySummaryResults(null, Long.parseLong(partnerId), treePath,
-          scopeType, year, month, false);
-    }
-
-    return results.stream()
-        .collect(Collectors.toMap(
-            result -> (Integer) result[0], // categoryNumber
-            result -> (BigDecimal) result[1] // totalEmission
-        ));
-  }
 
   // Scope 배출량 데이터 수정
   @Transactional
@@ -551,33 +490,4 @@ public class ScopeEmissionService {
     return builder.build();
   }
 
-  // ============================================================================
-  // 헬퍼 메서드
-  // ============================================================================
-
-  /**
-   * 카테고리별 총계 결과 조회
-   */
-  private List<Object[]> getCategorySummaryResults(
-      Long headquartersId, Long partnerId, String treePath,
-      ScopeType scopeType, Integer year, Integer month,
-      boolean isHeadquarters) {
-
-    switch (scopeType) {
-      case SCOPE1:
-      case SCOPE2:
-        // Scope 1, 2는 카테고리별 집계 기능이 제한적이므로 빈 리스트 반환
-        return List.of();
-      case SCOPE3:
-        if (isHeadquarters) {
-          return scopeEmissionRepository.sumTotalEmissionByScope3CategoryAndYearForHeadquarters(
-              headquartersId, year);
-        } else {
-          return scopeEmissionRepository.sumTotalEmissionByScope3CategoryAndYearForPartner(
-              partnerId, treePath, year);
-        }
-      default:
-        return List.of();
-    }
-  }
 }
