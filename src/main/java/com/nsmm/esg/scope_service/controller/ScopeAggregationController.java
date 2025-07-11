@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.nsmm.esg.scope_service.dto.ApiResponse;
 import com.nsmm.esg.scope_service.dto.response.ScopeAggregationResponse;
-import com.nsmm.esg.scope_service.dto.response.MonthlyEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.CategoryYearlyEmission;
 import com.nsmm.esg.scope_service.dto.response.CategoryMonthlyEmission;
 import com.nsmm.esg.scope_service.enums.ScopeType;
@@ -92,51 +91,6 @@ public class ScopeAggregationController {
     }
   }
 
-  /**
-   * 협력사별 월별 배출량 집계
-   * 지정된 협력사의 연도별 각 월(1월~현재월)의 Scope 1,2,3 배출량 총계 조회
-   * 차트 및 테이블 데이터 표시용
-   */
-  @Operation(summary = "협력사별 월별 배출량 집계", description = "지정된 협력사의 연도별 각 월(1월~현재월)의 Scope 1,2,3 배출량 총계를 조회합니다. " +
-      "차트 및 테이블 데이터 표시에 사용됩니다.")
-  @GetMapping("/partner/{partnerId}/year/{year}/monthly-summary")
-  public ResponseEntity<ApiResponse<List<MonthlyEmissionSummary>>> getPartnerMonthlyEmissionSummary(
-      @Parameter(description = "협력사 ID", example = "2") @PathVariable Long partnerId,
-      @Parameter(description = "보고 연도", example = "2024") @PathVariable Integer year,
-      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
-      @Parameter(description = "사용자 타입", example = "HEADQUARTERS") @RequestHeader("X-USER-TYPE") String userType,
-      @Parameter(description = "요청자 협력사 ID (협력사인 경우)", example = "2") @RequestHeader(value = "X-PARTNER-ID", required = false) String requestPartnerid,
-      @Parameter(description = "트리 경로", example = "/1/L1-001/") @RequestHeader(value = "X-TREE-PATH", required = false) String treePath,
-      @Parameter(description = "계층 레벨", example = "1") @RequestHeader(value = "X-LEVEL", required = false) String level) {
-
-    try {
-      log.info("협력사별 월별 집계 요청 - 대상협력사ID: {}, 본사ID: {}, 사용자타입: {}, 요청자협력사ID: {}, 연도: {}", 
-          partnerId, headquartersId, userType, requestPartnerid, year);
-
-      List<MonthlyEmissionSummary> response = scopeAggregationService
-          .getPartnerMonthlyEmissionSummary(
-              partnerId,
-              year,
-              Long.parseLong(headquartersId), 
-              userType, 
-              requestPartnerid != null ? Long.parseLong(requestPartnerid) : null,
-              treePath,
-              level != null ? Integer.parseInt(level) : null);
-
-      log.info("협력사별 월별 집계 완료 - 대상협력사ID: {}, 월별 데이터 수: {}", partnerId, response.size());
-
-      return ResponseEntity.ok(ApiResponse.success(response, "협력사별 월별 집계 결과가 성공적으로 조회되었습니다"));
-
-    } catch (NumberFormatException e) {
-      log.warn("잘못된 숫자 형식 - 본사ID: {}, 협력사ID: {}, 요청자협력사ID: {}, 레벨: {}", headquartersId, partnerId, requestPartnerid, level);
-      return ResponseEntity.badRequest()
-          .body(ApiResponse.error("ID 또는 레벨은 숫자여야 합니다", "INVALID_NUMERIC_FORMAT"));
-    } catch (Exception e) {
-      log.error("협력사별 월별 집계 중 오류 발생: {}", e.getMessage(), e);
-      return ResponseEntity.internalServerError()
-          .body(ApiResponse.error("협력사별 월별 집계 처리 중 오류가 발생했습니다", "PARTNER_MONTHLY_AGGREGATION_ERROR"));
-    }
-  }
 
   /**
    * 카테고리별 연간 배출량 집계

@@ -32,15 +32,11 @@ import java.util.stream.Collectors;
  * - Scope 1, 2에서 제품 코드/제품명 선택적 처리
  * - 프론트엔드 계산값 그대로 저장
  * - 중복 데이터 검증 및 트랜잭션 관리
- * 
  * 비즈니스 규칙:
  * - Scope 1, 2: 제품 코드/제품명 선택적 (null 허용)
  * - Scope 3: 모든 필드 필수 (기존 로직 유지)
  * - 본사: 모든 하위 조직 데이터 접근 가능
  * - 협력사: 본인 및 하위 조직 데이터만 접근 가능
- * 
- * @author ESG 프로젝트팀
- * @version 2.0
  */
 @Slf4j
 @Service
@@ -62,13 +58,6 @@ public class ScopeEmissionService {
    * - Scope 3: 모든 필드 필수 (기존 로직 유지)
    * - 프론트엔드 계산값 그대로 저장
    * - 중복 검증 제거로 자유로운 데이터 입력 허용
-   * 
-   * @param request        생성 요청 데이터
-   * @param userType       사용자 타입 (HEADQUARTERS | PARTNER)
-   * @param headquartersId 본사 ID
-   * @param partnerId      협력사 ID (협력사인 경우)
-   * @param treePath       계층 경로 (협력사인 경우)
-   * @return 생성된 배출량 데이터
    */
   @Transactional
   public ScopeEmissionResponse createScopeEmission(
@@ -120,15 +109,7 @@ public class ScopeEmissionService {
   // 조회 메서드
   // ============================================================================
 
-  /**
-   * 특정 배출량 데이터 조회 (권한 검증 포함)
-   * 
-   * @param id            배출량 데이터 ID
-   * @param accountNumber 계정 번호
-   * @param userType      사용자 타입
-   * @param treePath      사용자 TreePath
-   * @return 배출량 데이터
-   */
+  // 특정 배출량 데이터 조회 (권한 검증 포함)
   public ScopeEmissionResponse getScopeEmissionById(Long id, String accountNumber, String userType, String treePath) {
     log.info("배출량 데이터 조회: id={}, accountNumber={}, userType={}", id, accountNumber, userType);
 
@@ -160,9 +141,7 @@ public class ScopeEmissionService {
     return ScopeEmissionResponse.from(emission);
   }
 
-  /**
-   * Scope 타입별 배출량 데이터 조회 (본인 데이터만)
-   */
+  // Scope 타입별 배출량 데이터 조회 (본인 데이터만)
   public List<ScopeEmissionResponse> getEmissionsByScope(
       ScopeType scopeType,
       String accountNumber,
@@ -194,9 +173,7 @@ public class ScopeEmissionService {
         .collect(Collectors.toList());
   }
 
-  /**
-   * 특정 Scope의 카테고리별 총계 조회
-   */
+  // 특정 Scope의 카테고리별 총계 조회
   public Map<Integer, BigDecimal> getCategorySummaryByScope(
       ScopeType scopeType,
       Integer year,
@@ -225,26 +202,7 @@ public class ScopeEmissionService {
         ));
   }
 
-  // ============================================================================
-  // 업데이트 메서드
-  // ============================================================================
-
-  /**
-   * Scope 배출량 데이터 수정
-   * 
-   * 특징:
-   * - 부분 업데이트 지원 (null이 아닌 필드만 업데이트)
-   * - 권한 검증 포함 (본사/협력사 구분)
-   * - 중복 검증 제거로 자유로운 데이터 수정 허용
-   * 
-   * @param id             수정할 배출량 데이터 ID
-   * @param request        수정 요청 데이터
-   * @param userType       사용자 타입
-   * @param headquartersId 본사 ID
-   * @param partnerId      협력사 ID
-   * @param treePath       계층 경로
-   * @return 수정된 배출량 데이터
-   */
+  // Scope 배출량 데이터 수정
   @Transactional
   public ScopeEmissionResponse updateScopeEmission(
       Long id,
@@ -273,19 +231,7 @@ public class ScopeEmissionService {
     return ScopeEmissionResponse.from(savedEmission);
   }
 
-  // ============================================================================
-  // 삭제 메서드
-  // ============================================================================
-
-  /**
-   * 배출량 데이터 삭제 (권한 검증 포함)
-   * 
-   * @param id             삭제할 데이터 ID
-   * @param userType       사용자 타입
-   * @param headquartersId 본사 ID
-   * @param partnerId      협력사 ID
-   * @param treePath       계층 경로
-   */
+  // 배출량 데이터 삭제
   @Transactional
   public void deleteScopeEmission(
       Long id,
