@@ -15,10 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
-
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 통합 Scope 배출량 REST API 컨트롤러
@@ -59,25 +56,28 @@ public class ScopeEmissionController {
     log.debug("X-PARTNER-ID: {}", partnerId);
     log.debug("X-TREE-PATH: {}", treePath);
   }
-//
-//  // 제품 코드 유효성 검증 (Scope 1, 2는 선택적)
-//  private void validateProductCodeForScope(ScopeEmissionRequest request) {
-//    if (request.getScopeType() == ScopeType.SCOPE3 && request.getHasProductMapping()) {
-//      log.warn("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
-//      throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
-//    }
-//
-//    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
-//      if (request.getCompanyProductCode() == null || request.getProductName() == null) {
-//        log.warn("제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다");
-//        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다");
-//      }
-//      log.info("{} - 제품 코드 매핑 포함: productCode={}, productName={}",
-//          request.getScopeType(), request.getCompanyProductCode(), request.getProductName());
-//    } else {
-//      log.info("{} - 제품 코드 매핑 없이 진행", request.getScopeType());
-//    }
-//  }
+  //
+  // // 제품 코드 유효성 검증 (Scope 1, 2는 선택적)
+  // private void validateProductCodeForScope(ScopeEmissionRequest request) {
+  // if (request.getScopeType() == ScopeType.SCOPE3 &&
+  // request.getHasProductMapping()) {
+  // log.warn("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
+  // throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
+  // }
+  //
+  // if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+  // if (request.getCompanyProductCode() == null || request.getProductName() ==
+  // null) {
+  // log.warn("제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다");
+  // throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다");
+  // }
+  // log.info("{} - 제품 코드 매핑 포함: productCode={}, productName={}",
+  // request.getScopeType(), request.getCompanyProductCode(),
+  // request.getProductName());
+  // } else {
+  // log.info("{} - 제품 코드 매핑 없이 진행", request.getScopeType());
+  // }
+  // }
 
   // ========================================================================
   // 생성 API (Creation APIs)
@@ -100,7 +100,7 @@ public class ScopeEmissionController {
 
     try {
       // 제품 코드 유효성 검증
-//      validateProductCodeForScope(request);
+      // validateProductCodeForScope(request);
 
       ScopeEmissionResponse response = scopeEmissionService.createScopeEmission(
           request, userType, headquartersId, partnerId, treePath);
@@ -187,7 +187,6 @@ public class ScopeEmissionController {
           .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
     }
   }
-
 
   // ========================================================================
   // 업데이트 API (Update APIs)
