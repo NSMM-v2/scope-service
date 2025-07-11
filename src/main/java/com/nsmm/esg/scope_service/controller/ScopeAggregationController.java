@@ -15,6 +15,8 @@ import com.nsmm.esg.scope_service.dto.response.CategoryYearlyEmission;
 import com.nsmm.esg.scope_service.dto.response.CategoryMonthlyEmission;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.service.ScopeAggregationService;
+import com.nsmm.esg.scope_service.service.Scope3SpecialAggregationService;
+import com.nsmm.esg.scope_service.dto.response.Scope3SpecialAggregationResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -40,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ScopeAggregationController {
 
   private final ScopeAggregationService scopeAggregationService;
+  private final Scope3SpecialAggregationService scope3SpecialAggregationService;
 
 
   /**
@@ -179,6 +182,63 @@ public class ScopeAggregationController {
       log.error("카테고리별 월간 집계 중 오류 발생: {}", e.getMessage(), e);
       return ResponseEntity.internalServerError()
           .body(ApiResponse.error("카테고리별 월간 집계 처리 중 오류가 발생했습니다", "CATEGORY_MONTHLY_AGGREGATION_ERROR"));
+    }
+  }
+  //--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+  /**
+   * Scope 3 특수 집계 조회
+   * Cat.1, 2, 4, 5에 대한 특수 집계 규칙 적용 결과 조회
+   */
+  @Operation(summary = "Scope 3 특수 집계 조회", description = "Scope 3 Cat.1, 2, 4, 5에 대한 특수 집계 규칙을 적용하여 월별 배출량을 조회합니다. " +
+      "로그인된 사용자의 권한 범위 내에서만 데이터를 집계합니다.")
+  @GetMapping("/scope3-special/{year}/{month}")
+  public ResponseEntity<ApiResponse<Scope3SpecialAggregationResponse>> getScope3SpecialAggregation(
+      @Parameter(description = "보고 연도", example = "2024") @PathVariable Integer year,
+      @Parameter(description = "보고 월", example = "12") @PathVariable Integer month,
+      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
+      @Parameter(description = "사용자 타입", example = "HEADQUARTERS") @RequestHeader("X-USER-TYPE") String userType,
+      @Parameter(description = "협력사 ID (협력사인 경우)", example = "2") @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @Parameter(description = "트리 경로", example = "/1/L1-001/") @RequestHeader(value = "X-TREE-PATH", required = false) String treePath,
+      @Parameter(description = "계층 레벨", example = "1") @RequestHeader(value = "X-LEVEL", required = false) String level) {
+
+    try {
+      log.info("Scope 3 특수 집계 요청 - 연도: {}, 월: {}, 본사ID: {}, 사용자타입: {}, 협력사ID: {}", 
+          year, month, headquartersId, userType, partnerId);
+
+      // 월 값 유효성 검증
+      if (month < 1 || month > 12) {
+        return ResponseEntity.badRequest()
+            .body(ApiResponse.error("월은 1-12 범위여야 합니다", "INVALID_MONTH_RANGE"));
+      }
+
+      Scope3SpecialAggregationResponse response = scope3SpecialAggregationService
+          .getSpecialAggregation(
+              year,
+              month,
+              Long.parseLong(headquartersId),
+              userType,
+              partnerId != null ? Long.parseLong(partnerId) : null,
+              treePath);
+
+      log.info("Scope 3 특수 집계 완료 - 연도: {}, 월: {}, Cat1: {}, Cat2: {}, Cat4: {}, Cat5: {}", 
+          year, month, 
+          response.getCategory1TotalEmission(),
+          response.getCategory2TotalEmission(),
+          response.getCategory4TotalEmission(),
+          response.getCategory5TotalEmission());
+
+      return ResponseEntity.ok(ApiResponse.success(response, 
+          String.format("Scope 3 특수 집계 결과가 성공적으로 조회되었습니다 (%d년 %d월)", year, month)));
+
+    } catch (NumberFormatException e) {
+      log.warn("잘못된 숫자 형식 - 본사ID: {}, 협력사ID: {}, 레벨: {}", headquartersId, partnerId, level);
+      return ResponseEntity.badRequest()
+          .body(ApiResponse.error("ID 또는 레벨은 숫자여야 합니다", "INVALID_NUMERIC_FORMAT"));
+    } catch (Exception e) {
+      log.error("Scope 3 특수 집계 중 오류 발생: {}", e.getMessage(), e);
+      return ResponseEntity.internalServerError()
+          .body(ApiResponse.error("Scope 3 특수 집계 처리 중 오류가 발생했습니다", "SCOPE3_SPECIAL_AGGREGATION_ERROR"));
     }
   }
   //--------------------------------------------------------------------------------------------------------------------------------------------------------------------
