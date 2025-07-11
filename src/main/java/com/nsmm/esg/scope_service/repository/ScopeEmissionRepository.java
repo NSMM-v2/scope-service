@@ -31,8 +31,14 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
         // 기본 조회 메서드 (Basic Query Methods)
         // ========================================================================
 
-        // 본사ID + ScopeType으로 전체 조회
+        // 본사ID + ScopeType으로 전체 조회 (기존 - 하위 협력사 데이터 포함)
         List<ScopeEmission> findByHeadquartersIdAndScopeType(Long headquartersId, ScopeType scopeType);
+        
+        // 본사 본인 데이터만 조회 (협력사 데이터 제외)
+        List<ScopeEmission> findByHeadquartersIdAndPartnerIdIsNullAndScopeType(Long headquartersId, ScopeType scopeType);
+        
+        // 특정 협력사 데이터만 조회
+        List<ScopeEmission> findByPartnerIdAndScopeType(Long partnerId, ScopeType scopeType);
 
         // ========================================================================
         // 제품 매핑 관련 조회 메서드 (Product Mapping Query Methods)

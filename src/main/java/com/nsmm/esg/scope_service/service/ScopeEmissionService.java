@@ -135,39 +135,58 @@ public class ScopeEmissionService {
     ScopeEmission emission = scopeEmissionRepository.findById(id)
         .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + id));
 
-    // 권한 검증: 본사는 무조건 허용, 협력사는 본인/하위조직만 허용
+    // 강화된 권한 검증: 본사와 협력사 모두 본인 데이터만 접근 가능
     if ("HEADQUARTERS".equals(userType)) {
-      // 본사는 모든 데이터 접근 허용
+      // 본사: 본인의 본사 데이터만 접근 허용 (partnerId가 null인 데이터)
+      if (emission.getPartnerId() != null) {
+        throw new IllegalArgumentException("본사는 본인의 데이터만 접근할 수 있습니다");
+      }
+      // 추가 검증: 헤더의 accountNumber와 요청된 데이터 소유자가 동일한지 확인 가능
+      log.info("본사 권한 검증 통과: 본사 데이터 접근");
     } else if ("PARTNER".equals(userType)) {
+      // 협력사: 본인의 협력사 데이터만 접근 허용
+      if (emission.getPartnerId() == null) {
+        throw new IllegalArgumentException("협력사는 본인의 데이터만 접근할 수 있습니다");
+      }
+      // treePath 검증도 유지 (이중 보안)
       if (!emission.getTreePath().startsWith(treePath)) {
         throw new IllegalArgumentException("해당 데이터에 접근할 권한이 없습니다");
       }
+      log.info("협력사 권한 검증 통과: partnerId={}, treePath 일치", emission.getPartnerId());
     } else {
-      throw new IllegalArgumentException("알 수 없는 사용자 유형입니다");
+      throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
     }
 
     return ScopeEmissionResponse.from(emission);
   }
 
   /**
-   * Scope 타입별 배출량 데이터 조회
+   * Scope 타입별 배출량 데이터 조회 (본인 데이터만)
    */
   public List<ScopeEmissionResponse> getEmissionsByScope(
       ScopeType scopeType,
+      String accountNumber,
       String userType,
       String headquartersId,
       String partnerId,
       String treePath) {
 
-    log.info("Scope {} 배출량 조회: userType={}", scopeType, userType);
+    log.info("Scope {} 배출량 조회: accountNumber={}, userType={}", scopeType, accountNumber, userType);
     validateUserPermissions(userType, headquartersId, partnerId, treePath);
 
     List<ScopeEmission> emissions;
     if ("HEADQUARTERS".equals(userType)) {
-      emissions = scopeEmissionRepository.findByHeadquartersIdAndScopeType(
+      // 본사: 본인의 본사 데이터만 조회 (하위 협력사 데이터 제외)
+      emissions = scopeEmissionRepository.findByHeadquartersIdAndPartnerIdIsNullAndScopeType(
           Long.parseLong(headquartersId), scopeType);
+      log.info("본사 본인 데이터 조회: headquartersId={}, 조회된 건수={}", headquartersId, emissions.size());
+    } else if ("PARTNER".equals(userType)) {
+      // 협력사: 본인의 협력사 데이터만 조회
+      emissions = scopeEmissionRepository.findByPartnerIdAndScopeType(
+          Long.parseLong(partnerId), scopeType);
+      log.info("협력사 본인 데이터 조회: partnerId={}, 조회된 건수={}", partnerId, emissions.size());
     } else {
-      emissions = scopeEmissionRepository.findByTreePathStartingWithAndScopeType(treePath, scopeType);
+      throw new IllegalArgumentException("알 수 없는 사용자 유형입니다: " + userType);
     }
 
     return emissions.stream()

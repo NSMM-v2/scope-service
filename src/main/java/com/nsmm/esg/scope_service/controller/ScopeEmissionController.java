@@ -189,17 +189,18 @@ public class ScopeEmissionController {
   @GetMapping("/emissions/scope/{scopeType}")
   public ResponseEntity<ApiResponse<List<ScopeEmissionResponse>>> getEmissionsByScope(
       @PathVariable ScopeType scopeType,
+      @RequestHeader("X-ACCOUNT-NUMBER") String accountNumber,
       @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
       @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
       @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
-    log.info("Scope {} 배출량 조회 요청: userType={}", scopeType, userType);
+    log.info("Scope {} 배출량 조회 요청: accountNumber={}, userType={}", scopeType, accountNumber, userType);
     logHeaders("Scope 타입별 배출량 조회", userType, headquartersId, partnerId, treePath);
 
     try {
       List<ScopeEmissionResponse> response = scopeEmissionService.getEmissionsByScope(
-          scopeType, userType, headquartersId, partnerId, treePath);
+          scopeType, accountNumber, userType, headquartersId, partnerId, treePath);
       return ResponseEntity.ok(ApiResponse.success(response,
           String.format("%s 배출량 데이터를 조회했습니다.", scopeType.getDescription())));
     } catch (IllegalArgumentException e) {
