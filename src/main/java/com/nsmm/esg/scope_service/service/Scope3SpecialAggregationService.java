@@ -118,11 +118,18 @@ public class Scope3SpecialAggregationService {
 
         BigDecimal scope2Remaining = scope2Total.subtract(scope2Factory);
 
-        // finalTotal = 본인 계산 결과 + 하위 조직들의 Cat.1 finalTotal
-        BigDecimal finalTotal = scope1Remaining
-                .add(scope2Remaining)
-                .add(scope3Category1)
-                .add(childOrganizationsCat1Total);
+        // finalTotal 계산 - 협력사는 하위 조직 데이터만, 본사는 본인 + 하위 조직
+        BigDecimal finalTotal;
+        if (isHeadquarters) {
+            // 본사: 본인 계산 결과 + 하위 조직들의 Cat.1 finalTotal
+            finalTotal = scope1Remaining
+                    .add(scope2Remaining)
+                    .add(scope3Category1)
+                    .add(childOrganizationsCat1Total);
+        } else {
+            // 협력사: 하위 조직들의 Cat.1 finalTotal만 (본인 데이터는 업스트림용)
+            finalTotal = childOrganizationsCat1Total;
+        }
 
         return Scope3SpecialAggregationResponse.Category1Detail.builder()
                 .scope1Total(scope1Total)
@@ -133,7 +140,7 @@ public class Scope3SpecialAggregationService {
                 .scope2Total(scope2Total)
                 .scope2Factory(scope2Factory)
                 .scope2Remaining(scope2Remaining)
-                .scope3Category1(scope3Category1.add(childOrganizationsCat1Total)) // 하위 조직 결과 포함
+                .scope3Category1(isHeadquarters ? scope3Category1.add(childOrganizationsCat1Total) : scope3Category1) // 협력사는 본인 데이터만
                 .finalTotal(finalTotal)
                 .build();
     }
@@ -162,12 +169,20 @@ public class Scope3SpecialAggregationService {
         BigDecimal childOrganizationsCat2Total = calculateChildOrganizationsCat2Total(
                 year, month, headquartersId, userType, partnerId, treePath);
 
-        BigDecimal finalTotal = scope1Factory.add(scope2Factory).add(scope3Category2).add(childOrganizationsCat2Total);
+        // finalTotal 계산 - 협력사는 하위 조직 데이터만, 본사는 본인 + 하위 조직
+        BigDecimal finalTotal;
+        if (isHeadquarters) {
+            // 본사: 본인 계산 결과 + 하위 조직들의 Cat.2 finalTotal
+            finalTotal = scope1Factory.add(scope2Factory).add(scope3Category2).add(childOrganizationsCat2Total);
+        } else {
+            // 협력사: 하위 조직들의 Cat.2 finalTotal만 (본인 데이터는 업스트림용)
+            finalTotal = childOrganizationsCat2Total;
+        }
 
         return Scope3SpecialAggregationResponse.Category2Detail.builder()
                 .scope1Factory(scope1Factory)
                 .scope2Factory(scope2Factory)
-                .scope3Category2(scope3Category2.add(childOrganizationsCat2Total)) // 하위 조직 결과 포함
+                .scope3Category2(isHeadquarters ? scope3Category2.add(childOrganizationsCat2Total) : scope3Category2) // 협력사는 본인 데이터만
                 .finalTotal(finalTotal)
                 .build();
     }
@@ -192,11 +207,19 @@ public class Scope3SpecialAggregationService {
         BigDecimal childOrganizationsCat4Total = calculateChildOrganizationsCat4Total(
                 year, month, headquartersId, userType, partnerId, treePath);
 
-        BigDecimal finalTotal = scope1MobileCombustion.add(scope3Category4).add(childOrganizationsCat4Total);
+        // finalTotal 계산 - 협력사는 하위 조직 데이터만, 본사는 본인 + 하위 조직
+        BigDecimal finalTotal;
+        if (isHeadquarters) {
+            // 본사: 본인 계산 결과 + 하위 조직들의 Cat.4 finalTotal
+            finalTotal = scope1MobileCombustion.add(scope3Category4).add(childOrganizationsCat4Total);
+        } else {
+            // 협력사: 하위 조직들의 Cat.4 finalTotal만 (본인 데이터는 업스트림용)
+            finalTotal = childOrganizationsCat4Total;
+        }
 
         return Scope3SpecialAggregationResponse.Category4Detail.builder()
                 .scope1MobileCombustion(scope1MobileCombustion)
-                .scope3Category4(scope3Category4.add(childOrganizationsCat4Total)) // 하위 조직 결과 포함
+                .scope3Category4(isHeadquarters ? scope3Category4.add(childOrganizationsCat4Total) : scope3Category4) // 협력사는 본인 데이터만
                 .finalTotal(finalTotal)
                 .build();
     }
@@ -221,11 +244,19 @@ public class Scope3SpecialAggregationService {
         BigDecimal childOrganizationsCat5Total = calculateChildOrganizationsCat5Total(
                 year, month, headquartersId, userType, partnerId, treePath);
 
-        BigDecimal finalTotal = scope1WasteWater.add(scope3Category5).add(childOrganizationsCat5Total);
+        // finalTotal 계산 - 협력사는 하위 조직 데이터만, 본사는 본인 + 하위 조직
+        BigDecimal finalTotal;
+        if (isHeadquarters) {
+            // 본사: 본인 계산 결과 + 하위 조직들의 Cat.5 finalTotal
+            finalTotal = scope1WasteWater.add(scope3Category5).add(childOrganizationsCat5Total);
+        } else {
+            // 협력사: 하위 조직들의 Cat.5 finalTotal만 (본인 데이터는 업스트림용)
+            finalTotal = childOrganizationsCat5Total;
+        }
 
         return Scope3SpecialAggregationResponse.Category5Detail.builder()
                 .scope1WasteWater(scope1WasteWater)
-                .scope3Category5(scope3Category5.add(childOrganizationsCat5Total)) // 하위 조직 결과 포함
+                .scope3Category5(isHeadquarters ? scope3Category5.add(childOrganizationsCat5Total) : scope3Category5) // 협력사는 본인 데이터만
                 .finalTotal(finalTotal)
                 .build();
     }
