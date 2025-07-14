@@ -534,4 +534,48 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
         List<Long> findAllChildPartnerIds(
                 @Param("headquartersId") Long headquartersId,
                 @Param("parentTreePath") String parentTreePath);
+
+
+        // ========================================================================
+        // 특정 월만 조회하는 카테고리별 배출량 집계 쿼리 (Single Month Category Aggregation)
+        // ========================================================================
+
+        // Scope3 카테고리별 특정 월 배출량 집계 - 본사 직접 입력 데이터만
+        @Query("SELECT s.scope3CategoryNumber, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId IS NULL " +
+               "AND s.scopeType = 'SCOPE3' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "AND s.scope3CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope3CategoryNumber, s.reportingMonth " +
+               "ORDER BY s.scope3CategoryNumber, s.reportingMonth")
+        List<Object[]> sumScope3EmissionByYearAndSpecificMonthAndCategoryForHeadquartersOnly(
+                @Param("headquartersId") Long headquartersId,
+                @Param("year") Integer year,
+                @Param("month") Integer month);
+
+        // Scope3 카테고리별 특정 월 배출량 집계 - 특정 협력사 데이터만
+        @Query("SELECT s.scope3CategoryNumber, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId = :partnerId " +
+               "AND s.scopeType = 'SCOPE3' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "AND s.scope3CategoryNumber IS NOT NULL " +
+               "GROUP BY s.scope3CategoryNumber, s.reportingMonth " +
+               "ORDER BY s.scope3CategoryNumber, s.reportingMonth")
+        List<Object[]> sumScope3EmissionByYearAndSpecificMonthAndCategoryForSpecificPartner(
+                @Param("headquartersId") Long headquartersId,
+                @Param("partnerId") Long partnerId,
+                @Param("year") Integer year,
+                @Param("month") Integer month);
 }

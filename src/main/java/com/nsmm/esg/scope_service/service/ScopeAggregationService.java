@@ -45,7 +45,7 @@ public class ScopeAggregationService {
   private final Scope3SpecialAggregationService scope3SpecialAggregationService;
 
   // ========================================================================
-  // 협력사별 월별 집계 메서드 (Partner Monthly Aggregation)
+  // 대시보드 협력사별 월별 집계 메서드 (Partner Monthly Aggregation)
   // ========================================================================
   /**
    * 협력사별 월별 배출량 집계
@@ -390,6 +390,92 @@ public class ScopeAggregationService {
     }
   }
 
+  /**
+   * 카테고리별 특정 월 배출량 집계 (Scope3만 지원)
+   * 
+   * @param scopeType      Scope 타입 (SCOPE3만 지원)
+   * @param year           보고 연도
+   * @param month          보고 월
+   * @param headquartersId 본사 ID
+   * @param userType       사용자 타입 (HEADQUARTERS | PARTNER)
+   * @param partnerId      파트너사 ID (파트너사인 경우)
+   * @param treePath       계층 경로
+   * @param level          계층 레벨
+   * @return 카테고리별 특정 월 배출량 목록
+   */
+  @Transactional
+  public List<CategoryMonthlyEmission> getCategorySpecificMonthEmissions(
+      ScopeType scopeType,
+      Integer year,
+      Integer month,
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      String treePath,
+      Integer level) {
+
+    log.info("카테고리별 특정 월 집계 시작 - Scope: {}, 연도: {}, 월: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+        scopeType, year, month, headquartersId, userType, partnerId);
+
+    // 현재는 Scope3만 지원
+    if (scopeType != ScopeType.SCOPE3) {
+      log.warn("현재 특정 월 조회는 Scope3만 지원합니다 - 요청된 Scope: {}", scopeType);
+      return new ArrayList<>();
+    }
+
+    try {
+      List<Object[]> results = new ArrayList<>();
+
+      // 사용자 타입에 따라 적절한 쿼리 메서드 호출
+      if ("HEADQUARTERS".equals(userType)) {
+        // 본사인 경우 본사 직접 입력 데이터만 집계
+        results = scopeEmissionRepository.sumScope3EmissionByYearAndSpecificMonthAndCategoryForHeadquartersOnly(
+            headquartersId, year, month);
+      } else if ("PARTNER".equals(userType) && partnerId != null) {
+        // 협력사인 경우 해당 협력사 데이터만 집계
+        results = scopeEmissionRepository.sumScope3EmissionByYearAndSpecificMonthAndCategoryForSpecificPartner(
+            headquartersId, partnerId, year, month);
+      }
+
+      // 전체 합계 계산
+      BigDecimal totalSumAllCategories = results.stream()
+          .map(result -> (BigDecimal) result[2])
+          .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+      // 결과를 CategoryMonthlyEmission으로 변환
+      List<CategoryMonthlyEmission> categoryEmissions = results.stream()
+          .map(result -> {
+            Integer categoryNumber = (Integer) result[0];
+            Integer reportingMonth = (Integer) result[1];
+            BigDecimal totalEmission = (BigDecimal) result[2];
+            Long dataCount = (Long) result[3];
+
+            String categoryName = getCategoryNameByNumber(scopeType, categoryNumber);
+
+            return CategoryMonthlyEmission.builder()
+                .categoryNumber(categoryNumber)
+                .categoryName(categoryName)
+                .year(year)
+                .month(reportingMonth)
+                .totalEmission(totalEmission)
+                .dataCount(dataCount)
+                .scopeType(scopeType.name())
+                .totalSumAllCategories(totalSumAllCategories)
+                .build();
+          })
+          .collect(Collectors.toList());
+
+      log.info("카테고리별 특정 월 집계 완료 - Scope: {}, 연도: {}, 월: {}, 데이터 수: {}", 
+          scopeType, year, month, categoryEmissions.size());
+      return categoryEmissions;
+
+    } catch (Exception e) {
+      log.error("카테고리별 특정 월 집계 중 오류 발생 - Scope: {}, 연도: {}, 월: {}: {}", 
+          scopeType, year, month, e.getMessage(), e);
+      return new ArrayList<>();
+    }
+  }
+
   // ========================================================================
   // Scope3 통합 배출량 집계 메서드 (Scope3 Combined Emission Aggregation)
   // ========================================================================
@@ -416,9 +502,9 @@ public class ScopeAggregationService {
       Scope3SpecialAggregationResponse specialAggregation = scope3SpecialAggregationService
           .getSpecialAggregation(year, month, headquartersId, userType, partnerId, treePath);
 
-      // 2. 일반 Scope3 카테고리별 월별 배출량 조회
-      List<CategoryMonthlyEmission> monthlyCategories = getCategoryMonthlyEmissions(
-          ScopeType.SCOPE3, year, headquartersId, userType, partnerId, treePath, level);
+      // 2. 일반 Scope3 카테고리별 특정 월 배출량 조회
+      List<CategoryMonthlyEmission> monthlyCategories = getCategorySpecificMonthEmissions(
+          ScopeType.SCOPE3, year, month, headquartersId, userType, partnerId, treePath, level);
 
       // 3. 조직 ID 결정
       Long organizationId = "HEADQUARTERS".equals(userType) ? headquartersId : partnerId;

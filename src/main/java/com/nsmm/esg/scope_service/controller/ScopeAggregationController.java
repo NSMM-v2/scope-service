@@ -52,7 +52,7 @@ public class ScopeAggregationController {
    * 지정된 협력사의 연도별 각 월(1월~현재월)의 Scope 1,2,3 배출량 총계 조회
    * 차트 및 테이블 데이터 표시용
    */
-  @Operation(summary = "협력사별 월별 배출량 집계", description = "지정된 협력사의 연도별 각 월(1월~현재월)의 Scope 1,2,3 배출량 총계를 조회합니다. " +
+  @Operation(summary = "대시보드 협력사별 월별 배출량 집계", description = "지정된 협력사의 연도별 각 월(1월~현재월)의 Scope 1,2,3 배출량 총계를 조회합니다. " +
       "차트 및 테이블 데이터 표시에 사용됩니다.")
   @GetMapping("/partner/{partnerId}/year/{year}/monthly-summary")
   public ResponseEntity<ApiResponse<List<MonthlyEmissionSummary>>> getPartnerMonthlyEmissionSummary(
@@ -94,7 +94,7 @@ public class ScopeAggregationController {
   //--------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
   /**
-   * 카테고리별 연간 배출량 집계
+   * SCOPE 1 2 연간 배출량 집계
    * 지정된 Scope 타입의 카테고리별 연간 총 배출량을 로그인된 사용자 기준으로 조회
    */
   @Operation(summary = "카테고리별 연간 배출량 집계", description = "지정된 Scope 타입의 카테고리별 연간 총 배출량을 로그인된 사용자 기준으로 조회합니다. " +
@@ -141,7 +141,7 @@ public class ScopeAggregationController {
   //--------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
   /**
-   * 카테고리별 월간 배출량 집계
+   * SCOPE 1 2  월간 배출량 집계
    * 지정된 Scope 타입의 카테고리별 월간 배출량을 로그인된 사용자 기준으로 조회 (연도의 모든 월)
    */
   @Operation(summary = "카테고리별 월간 배출량 집계", description = "지정된 Scope 타입의 카테고리별 월간 배출량을 로그인된 사용자 기준으로 조회합니다. " +
