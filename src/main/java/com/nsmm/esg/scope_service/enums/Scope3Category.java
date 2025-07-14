@@ -13,16 +13,16 @@ public enum Scope3Category {
   CAPITAL_GOODS(2, "자본재"),
   FUEL_ENERGY_ACTIVITIES(3, "연료 및 에너지 관련 활동"),
   UPSTREAM_TRANSPORTATION(4, "업스트림 운송 및 유통"),
-  WASTE_GENERATED(5, "폐기물 처리"),
-  BUSINESS_TRAVEL(6, "사업장 관련 활동"),
-  EMPLOYEE_COMMUTING(7, "직원 통근"),
+  WASTE_GENERATED(5, "운영 과정에서 발생하는 폐기물"),
+  BUSINESS_TRAVEL(6, "출장"),
+  EMPLOYEE_COMMUTING(7, "직원 출퇴근"),
   UPSTREAM_LEASED_ASSETS(8, "업스트림 임대 자산"),
 
   // 다운스트림 카테고리 (9-15)
   DOWNSTREAM_TRANSPORTATION(9, "다운스트림 운송 및 유통"),
-  PROCESSING_SOLD_PRODUCTS(10, "판매 후 처리"),
-  USE_SOLD_PRODUCTS(11, "제품 사용"),
-  END_OF_LIFE_SOLD_PRODUCTS(12, "제품 폐기"),
+  PROCESSING_SOLD_PRODUCTS(10, "판매된 제품의 처리"),
+  USE_SOLD_PRODUCTS(11, "판매된 제품의 사용"),
+  END_OF_LIFE_SOLD_PRODUCTS(12, "판매된 제품의 수명 종료 처리"),
   DOWNSTREAM_LEASED_ASSETS(13, "다운스트림 임대 자산"),
   FRANCHISES(14, "프랜차이즈"),
   INVESTMENTS(15, "투자");
