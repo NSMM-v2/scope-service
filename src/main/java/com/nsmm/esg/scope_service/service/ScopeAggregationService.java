@@ -17,6 +17,8 @@ import com.nsmm.esg.scope_service.dto.response.MonthlyEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.CategoryYearlyEmission;
 import com.nsmm.esg.scope_service.dto.response.CategoryMonthlyEmission;
 import com.nsmm.esg.scope_service.dto.response.ScopeCategoryResponse;
+import com.nsmm.esg.scope_service.dto.response.Scope3CombinedEmissionResponse;
+import com.nsmm.esg.scope_service.dto.response.Scope3SpecialAggregationResponse;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 
 /**
@@ -40,6 +42,7 @@ import com.nsmm.esg.scope_service.enums.ScopeType;
 public class ScopeAggregationService {
 
   private final ScopeEmissionRepository scopeEmissionRepository;
+  private final Scope3SpecialAggregationService scope3SpecialAggregationService;
 
   // ========================================================================
   // 협력사별 월별 집계 메서드 (Partner Monthly Aggregation)
@@ -385,6 +388,163 @@ public class ScopeAggregationService {
       log.warn("카테고리명 조회 실패 - Scope: {}, 번호: {}: {}", scopeType, categoryNumber, e.getMessage());
       return "Unknown Category";
     }
+  }
+
+  // ========================================================================
+  // Scope3 통합 배출량 집계 메서드 (Scope3 Combined Emission Aggregation)
+  // ========================================================================
+
+  /**
+   * Scope3 월별 통합 배출량 집계
+   * 특수집계배출량 + 일반 Scope3 카테고리별 월별 배출량
+   */
+  @Transactional
+  public Scope3CombinedEmissionResponse getScope3CombinedMonthlyEmission(
+      Integer year,
+      Integer month,
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      String treePath,
+      Integer level) {
+
+    log.info("Scope3 월별 통합 집계 시작 - 연도: {}, 월: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+        year, month, headquartersId, userType, partnerId);
+
+    try {
+      // 1. 특수집계 배출량 조회
+      Scope3SpecialAggregationResponse specialAggregation = scope3SpecialAggregationService
+          .getSpecialAggregation(year, month, headquartersId, userType, partnerId, treePath);
+
+      // 2. 일반 Scope3 카테고리별 월별 배출량 조회
+      List<CategoryMonthlyEmission> monthlyCategories = getCategoryMonthlyEmissions(
+          ScopeType.SCOPE3, year, headquartersId, userType, partnerId, treePath, level);
+
+      // 3. 조직 ID 결정
+      Long organizationId = "HEADQUARTERS".equals(userType) ? headquartersId : partnerId;
+
+      // 4. 통합 응답 생성
+      Scope3CombinedEmissionResponse response = Scope3CombinedEmissionResponse.createMonthlyResponse(
+          year, month, userType, organizationId, specialAggregation, monthlyCategories);
+
+      log.info("Scope3 월별 통합 집계 완료 - 연도: {}, 월: {}, 특수집계: {}, 일반집계: {}, 총합: {}",
+          year, month, response.getSpecialAggregationTotal(),
+          response.getRegularCategoryTotal(), response.getTotalScope3Emission());
+
+      return response;
+
+    } catch (Exception e) {
+      log.error("Scope3 월별 통합 집계 중 오류 발생 - 연도: {}, 월: {}: {}", year, month, e.getMessage(), e);
+      throw new RuntimeException("Scope3 월별 통합 집계 처리 중 오류가 발생했습니다", e);
+    }
+  }
+
+  /**
+   * Scope3 연별 통합 배출량 집계
+   * 특수집계배출량 + 일반 Scope3 카테고리별 연별 배출량
+   */
+  @Transactional
+  public Scope3CombinedEmissionResponse getScope3CombinedYearlyEmission(
+      Integer year,
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      String treePath,
+      Integer level) {
+
+    log.info("Scope3 연별 통합 집계 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+        year, headquartersId, userType, partnerId);
+
+    try {
+      // 1. 특수집계 배출량 조회 (1~12월 모든 월 합산)
+      Scope3SpecialAggregationResponse specialAggregation = getYearlySpecialAggregation(
+          year, headquartersId, userType, partnerId, treePath);
+
+      // 2. 일반 Scope3 카테고리별 연별 배출량 조회
+      List<CategoryYearlyEmission> yearlyCategories = getCategoryYearlyEmissions(
+          ScopeType.SCOPE3, year, headquartersId, userType, partnerId, treePath, level);
+
+      // 3. 조직 ID 결정
+      Long organizationId = "HEADQUARTERS".equals(userType) ? headquartersId : partnerId;
+
+      // 4. 통합 응답 생성
+      Scope3CombinedEmissionResponse response = Scope3CombinedEmissionResponse.createYearlyResponse(
+          year, userType, organizationId, specialAggregation, yearlyCategories);
+
+      log.info("Scope3 연별 통합 집계 완료 - 연도: {}, 특수집계: {}, 일반집계: {}, 총합: {}",
+          year, response.getSpecialAggregationTotal(),
+          response.getRegularCategoryTotal(), response.getTotalScope3Emission());
+
+      return response;
+
+    } catch (Exception e) {
+      log.error("Scope3 연별 통합 집계 중 오류 발생 - 연도: {}: {}", year, e.getMessage(), e);
+      throw new RuntimeException("Scope3 연별 통합 집계 처리 중 오류가 발생했습니다", e);
+    }
+  }
+
+  /**
+   * 연별 특수집계 배출량 조회 (1~12월 모든 월 합산)
+   */
+  private Scope3SpecialAggregationResponse getYearlySpecialAggregation(
+      Integer year,
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      String treePath) {
+
+    log.info("연별 특수집계 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+        year, headquartersId, userType, partnerId);
+
+    BigDecimal totalCat1 = BigDecimal.ZERO;
+    BigDecimal totalCat2 = BigDecimal.ZERO;
+    BigDecimal totalCat4 = BigDecimal.ZERO;
+    BigDecimal totalCat5 = BigDecimal.ZERO;
+
+    // 1월부터 12월까지 각 월의 특수집계 조회하여 합산
+    for (int month = 1; month <= 12; month++) {
+      try {
+        Scope3SpecialAggregationResponse monthlyAggregation = scope3SpecialAggregationService
+            .getSpecialAggregation(year, month, headquartersId, userType, partnerId, treePath);
+
+        totalCat1 = totalCat1.add(monthlyAggregation.getCategory1TotalEmission());
+        totalCat2 = totalCat2.add(monthlyAggregation.getCategory2TotalEmission());
+        totalCat4 = totalCat4.add(monthlyAggregation.getCategory4TotalEmission());
+        totalCat5 = totalCat5.add(monthlyAggregation.getCategory5TotalEmission());
+
+        log.debug("{}월 특수집계 - Cat1: {}, Cat2: {}, Cat4: {}, Cat5: {}",
+            month, monthlyAggregation.getCategory1TotalEmission(),
+            monthlyAggregation.getCategory2TotalEmission(),
+            monthlyAggregation.getCategory4TotalEmission(),
+            monthlyAggregation.getCategory5TotalEmission());
+
+      } catch (Exception e) {
+        log.warn("{}월 특수집계 조회 중 오류 발생: {}", month, e.getMessage());
+        // 해당 월 데이터 없으면 0으로 처리하고 계속 진행
+      }
+    }
+
+    // 조직 ID 결정
+    Long organizationId = "HEADQUARTERS".equals(userType) ? headquartersId : partnerId;
+
+    // 연별 특수집계 응답 생성 (12월로 설정하여 연별임을 표시)
+    Scope3SpecialAggregationResponse yearlySpecialAggregation = Scope3SpecialAggregationResponse.builder()
+        .reportingYear(year)
+        .reportingMonth(12) // 연별 조회임을 나타내는 더미 값
+        .userType(userType)
+        .organizationId(organizationId)
+        .category1TotalEmission(totalCat1)
+        .category2TotalEmission(totalCat2)
+        .category4TotalEmission(totalCat4)
+        .category5TotalEmission(totalCat5)
+        // Detail 정보는 null로 설정 (연별 합산에서는 세부사항 제공하지 않음)
+        .build();
+
+    log.info("연별 특수집계 완료 - 연도: {}, Cat1: {}, Cat2: {}, Cat4: {}, Cat5: {}, 총합: {}",
+        year, totalCat1, totalCat2, totalCat4, totalCat5,
+        totalCat1.add(totalCat2).add(totalCat4).add(totalCat5));
+
+    return yearlySpecialAggregation;
   }
 
 }
