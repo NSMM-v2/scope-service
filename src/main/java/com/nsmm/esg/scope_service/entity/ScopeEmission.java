@@ -109,6 +109,19 @@ public class ScopeEmission {
     private String productName; // 제품명 (휠, 엔진, 차체 등)
 
     // ========================================================================
+    // 자재코드 매핑 정보 (Material Code Mapping) - 추가
+    // ========================================================================
+
+    @Column(name = "upstream_material_code", length = 50)
+    private String upstreamMaterialCode; // 할당받은 상위 자재코드 (A001, B100...)
+
+    @Column(name = "internal_material_code", length = 50)
+    private String internalMaterialCode; // 내부 자재코드 (B001, C100...)
+
+    @Column(name = "material_mapping_id")
+    private Long materialMappingId; // MaterialMapping 테이블 연결 ID
+
+    // ========================================================================
     // 프론트엔드 입력 데이터 (Frontend Input Data)
     // ========================================================================
 
@@ -161,51 +174,6 @@ public class ScopeEmission {
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    // ========================================================================
-    // 비즈니스 로직 메서드 (Business Logic Methods)
-    // ========================================================================
-
-    /**
-     * Scope 1 카테고리 설정
-     */
-    public ScopeEmission withScope1Category(Scope1Category category) {
-        return this.toBuilder()
-                .scope1CategoryNumber(category.getCategoryNumber())
-                .scope1CategoryName(category.getCategoryName())
-                .scope1CategoryGroup(category.getGroupName())
-                .build();
-    }
-
-    /**
-     * Scope 2 카테고리 설정
-     */
-    public ScopeEmission withScope2Category(Scope2Category category) {
-        return this.toBuilder()
-                .scope2CategoryNumber(category.getCategoryNumber())
-                .scope2CategoryName(category.getCategoryName())
-                .build();
-    }
-
-    /**
-     * Scope 3 카테고리 설정
-     */
-    public ScopeEmission withScope3Category(Scope3Category category) {
-        return this.toBuilder()
-                .scope3CategoryNumber(category.getCategoryNumber())
-                .scope3CategoryName(category.getCategoryName())
-                .build();
-    }
-
-    /**
-     * 제품 코드 매핑 설정
-     */
-    public ScopeEmission withProductCode(String companyProductCode, String productName) {
-        return this.toBuilder()
-                .companyProductCode(companyProductCode)
-                .productName(productName)
-                .build();
-    }
 
     /**
      * 프론트엔드 입력 데이터 검증
