@@ -140,8 +140,8 @@ public class ScopeEmissionResponse {
         .scope2CategoryName(emission.getScope2CategoryName())
         .scope3CategoryNumber(emission.getScope3CategoryNumber())
         .scope3CategoryName(emission.getScope3CategoryName())
-        .companyProductCode(emission.getCompanyProductCode())
-        .productName(emission.getProductName())
+        .companyProductCode(emission.getInternalMaterialCode()) // 자재코드 매핑에서 내부 코드 가져오기
+        .productName(emission.getMaterialName()) // 자재코드 매핑에서 자재명 가져오기
         .majorCategory(emission.getMajorCategory())
         .subcategory(emission.getSubcategory())
         .rawMaterial(emission.getRawMaterial())

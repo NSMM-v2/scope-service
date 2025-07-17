@@ -19,9 +19,6 @@ import com.nsmm.esg.scope_service.enums.InputType;
  * - 모든 필드가 선택적 (null인 경우 업데이트하지 않음)
  * - 프론트엔드에서 유연한 부분 업데이트 가능
  * - 기존 Scope3EmissionUpdateRequest와 호환
- * 
- * @author ESG 프로젝트팀
- * @version 1.0
  */
 @Getter
 @Setter
