@@ -70,7 +70,7 @@ public class MaterialAssignmentController {
 
         try {
             List<MaterialAssignmentResponse> assignments = materialAssignmentService
-                    .getAssignmentsByPartner(partnerUuid, userType, headquartersId, treePath);
+                    .getAssignmentsByPartner(partnerUuid);
 
             return ResponseEntity.ok(ApiResponse.success(assignments, 
                     String.format("협력사 %s의 자재코드 할당 목록을 조회했습니다. (총 %d개)", 
@@ -147,7 +147,7 @@ public class MaterialAssignmentController {
 
         try {
             MaterialAssignmentResponse response = materialAssignmentService
-                    .createAssignment(request, userType, headquartersId, partnerId, treePath);
+                    .createAssignment(request, userType, headquartersId, partnerId);
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(response, 
@@ -188,7 +188,7 @@ public class MaterialAssignmentController {
 
         try {
             List<MaterialAssignmentResponse> responses = materialAssignmentService
-                    .createBatchAssignments(request, userType, headquartersId, partnerId, treePath);
+                    .createBatchAssignments(request, userType, headquartersId, partnerId);
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(responses, 
@@ -230,7 +230,7 @@ public class MaterialAssignmentController {
 
         try {
             MaterialAssignmentResponse response = materialAssignmentService
-                    .updateAssignment(assignmentId, request, userType, headquartersId, partnerId, treePath);
+                    .updateAssignment(assignmentId, request);
 
             return ResponseEntity.ok(ApiResponse.success(response, 
                     String.format("자재코드 할당 %d를 성공적으로 수정했습니다.", assignmentId)));
@@ -276,7 +276,7 @@ public class MaterialAssignmentController {
 
         try {
             Map<String, Object> result = materialAssignmentService
-                    .canDeleteAssignment(assignmentId, userType, headquartersId, partnerId, treePath);
+                    .canDeleteAssignment(assignmentId);
 
             return ResponseEntity.ok(ApiResponse.success(result, 
                     String.format("자재코드 할당 %d의 삭제 가능 여부를 확인했습니다.", assignmentId)));
@@ -313,7 +313,7 @@ public class MaterialAssignmentController {
         logHeaders("자재코드 할당 삭제", userType, headquartersId, partnerId, treePath);
 
         try {
-            materialAssignmentService.deleteAssignment(assignmentId, userType, headquartersId, partnerId, treePath);
+            materialAssignmentService.deleteAssignment(assignmentId);
 
             return ResponseEntity.ok(ApiResponse.success("삭제 완료", 
                     String.format("자재코드 할당 %d를 성공적으로 삭제했습니다.", assignmentId)));

@@ -28,18 +28,6 @@ public interface MaterialAssignmentRepository extends JpaRepository<MaterialAssi
     List<MaterialAssignment> findActiveByToPartnerId(@Param("partnerId") String partnerId);
 
     /**
-     * 할당하는 협력사별 활성 할당 조회  
-     */
-    @Query("SELECT a FROM MaterialAssignment a WHERE a.fromPartnerId = :partnerId AND a.isActive = true")
-    List<MaterialAssignment> findActiveByFromPartnerId(@Param("partnerId") String partnerId);
-
-    /**
-     * 본사가 직접 할당한 활성 할당 조회
-     */
-    @Query("SELECT a FROM MaterialAssignment a WHERE a.fromPartnerId IS NULL AND a.headquartersId = :headquartersId AND a.isActive = true")
-    List<MaterialAssignment> findActiveByHeadquarters(@Param("headquartersId") Long headquartersId);
-
-    /**
      * 본사별 모든 할당 조회 (계층 구조 포함)
      */
     @Query("SELECT a FROM MaterialAssignment a WHERE a.headquartersId = :headquartersId AND a.isActive = true ORDER BY a.toLevel, a.toPartnerId")
@@ -51,21 +39,4 @@ public interface MaterialAssignmentRepository extends JpaRepository<MaterialAssi
     @Query("SELECT a FROM MaterialAssignment a WHERE a.materialCode = :materialCode AND a.toPartnerId = :partnerId AND a.isActive = true")
     Optional<MaterialAssignment> findByMaterialCodeAndToPartnerId(@Param("materialCode") String materialCode, @Param("partnerId") String partnerId);
 
-    /**
-     * 매핑되지 않은 할당 조회 (수정/삭제 가능한 할당)
-     */
-    @Query("SELECT a FROM MaterialAssignment a WHERE a.isMapped = false AND a.isActive = true AND a.toPartnerId = :partnerId")
-    List<MaterialAssignment> findUnmappedByToPartnerId(@Param("partnerId") Long partnerId);
-
-    /**
-     * 할당 체인 추적 (특정 자재코드의 전체 할당 경로)
-     */
-    @Query("SELECT a FROM MaterialAssignment a WHERE a.headquartersId = :headquartersId AND a.materialCode = :materialCode AND a.isActive = true ORDER BY a.toLevel")
-    List<MaterialAssignment> findAssignmentChain(@Param("headquartersId") Long headquartersId, @Param("materialCode") String materialCode);
-
-    /**
-     * 레벨별 할당 통계
-     */
-    @Query("SELECT a.toLevel, COUNT(a) FROM MaterialAssignment a WHERE a.headquartersId = :headquartersId AND a.isActive = true GROUP BY a.toLevel ORDER BY a.toLevel")
-    List<Object[]> countByLevelAndHeadquarters(@Param("headquartersId") Long headquartersId);
 }

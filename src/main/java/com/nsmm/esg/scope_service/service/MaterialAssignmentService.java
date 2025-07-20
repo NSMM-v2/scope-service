@@ -29,12 +29,8 @@ public class MaterialAssignmentService {
     private final MaterialAssignmentRepository materialAssignmentRepository;
 
     @Transactional(readOnly = true)
-    public List<MaterialAssignmentResponse> getAssignmentsByPartner(String partnerUuid, String userType, 
-                                                                   String headquartersId, String treePath) {
+    public List<MaterialAssignmentResponse> getAssignmentsByPartner(String partnerUuid) {
         log.info("협력사 {}의 자재코드 할당 목록 조회 시작", partnerUuid);
-        
-        // 권한 검증
-        validateAccessPermission(partnerUuid, userType, headquartersId, treePath);
         
         List<MaterialAssignment> assignments = materialAssignmentRepository.findActiveByToPartnerId(partnerUuid);
         
@@ -73,7 +69,7 @@ public class MaterialAssignmentService {
      */
     @Transactional
     public MaterialAssignmentResponse createAssignment(MaterialAssignmentRequest request, String userType,
-                                                      String headquartersId, String partnerId, String treePath) {
+                                                      String headquartersId, String partnerId) {
         log.info("자재코드 할당 생성 시작: 협력사 {}, 자재코드 {}", request.getToPartnerId(), request.getMaterialCode());
         
         // 중복 체크
@@ -102,7 +98,7 @@ public class MaterialAssignmentService {
     @Transactional
     public List<MaterialAssignmentResponse> createBatchAssignments(MaterialAssignmentBatchRequest request, 
                                                                   String userType, String headquartersId, 
-                                                                  String partnerId, String treePath) {
+                                                                  String partnerId) {
         log.info("자재코드 일괄 할당 시작: 협력사 {}, {}개 자재코드", 
                 request.getToPartnerId(), request.getMaterialCodes().size());
         
@@ -149,8 +145,7 @@ public class MaterialAssignmentService {
      * 자재코드 할당 수정
      */
     @Transactional
-    public MaterialAssignmentResponse updateAssignment(Long assignmentId, MaterialAssignmentRequest request,
-                                                      String userType, String headquartersId, String partnerId, String treePath) {
+    public MaterialAssignmentResponse updateAssignment(Long assignmentId, MaterialAssignmentRequest request) {
         log.info("자재코드 할당 수정 시작: ID {}", assignmentId);
         
         MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
@@ -191,7 +186,7 @@ public class MaterialAssignmentService {
      * 자재코드 할당 삭제
      */
     @Transactional
-    public void deleteAssignment(Long assignmentId, String userType, String headquartersId, String partnerId, String treePath) {
+    public void deleteAssignment(Long assignmentId) {
         log.info("자재코드 할당 삭제 시작: ID {}", assignmentId);
         
         MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
@@ -211,16 +206,12 @@ public class MaterialAssignmentService {
      * 자재코드 할당 삭제 가능 여부 확인
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> canDeleteAssignment(Long assignmentId, String userType, 
-                                                  String headquartersId, String partnerId, String treePath) {
+    public Map<String, Object> canDeleteAssignment(Long assignmentId) {
         log.info("자재코드 할당 삭제 가능 여부 확인 시작: ID {}", assignmentId);
         
         // 할당 존재 여부 확인
         MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("할당을 찾을 수 없습니다: ID " + assignmentId));
-        
-        // 기본 권한 검증
-        validateAccessPermission(assignment.getToPartnerId(), userType, headquartersId, treePath);
         
         Map<String, Object> result = new HashMap<>();
         
@@ -292,22 +283,5 @@ public class MaterialAssignmentService {
                 .build();
     }
 
-    /**
-     * 조회 권한 검증
-     */
-    private void validateAccessPermission(String partnerId, String userType, String headquartersId, String treePath) {
-        if ("HEADQUARTERS".equals(userType)) {
-            // 본사는 모든 협력사 조회 가능
-            return;
-        }
-        
-        if ("PARTNER".equals(userType)) {
-            // 협력사는 자신의 할당만 조회 가능
-            // treePath를 이용한 계층 검증 로직 필요
-            return;
-        }
-        
-        throw new IllegalArgumentException("권한이 없습니다");
-    }
 
 }
