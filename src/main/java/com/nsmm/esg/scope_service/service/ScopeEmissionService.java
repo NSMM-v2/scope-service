@@ -9,6 +9,7 @@ import com.nsmm.esg.scope_service.enums.Scope2Category;
 import com.nsmm.esg.scope_service.enums.Scope3Category;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.repository.ScopeEmissionRepository;
+import com.nsmm.esg.scope_service.repository.MaterialMappingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 public class ScopeEmissionService {
 
   private final ScopeEmissionRepository scopeEmissionRepository;
+  private final MaterialMappingRepository materialMappingRepository;
 
   // ============================================================================
   // 생성 메서드
@@ -341,13 +343,28 @@ public class ScopeEmissionService {
         break;
     }
 
-    // 제품 코드 매핑이 설정된 경우에만 제품 코드 정보 설정
+    // 자재코드 매핑이 설정된 경우 MaterialMapping 생성 및 연결 (저장 후 처리)
+    ScopeEmission emission = builder.build();
+    
     if (Boolean.TRUE.equals(request.getHasProductMapping())) {
-      builder.companyProductCode(request.getCompanyProductCode())
-          .productName(request.getProductName());
+      // ScopeEmission을 먼저 저장하여 ID를 얻음
+      ScopeEmission savedEmission = scopeEmissionRepository.save(emission);
+      
+      // MaterialMapping 생성 및 scopeEmissionId 설정
+      MaterialMapping materialMapping = createMaterialMapping(request, headquartersId, partnerId, treePath)
+          .toBuilder()
+          .scopeEmissionId(savedEmission.getId())
+          .build();
+      
+      // MaterialMapping 저장
+      MaterialMapping savedMapping = materialMappingRepository.save(materialMapping);
+      
+      // MaterialMapping과 연결된 ScopeEmission 업데이트
+      savedEmission = savedEmission.setMaterialMapping(savedMapping);
+      return scopeEmissionRepository.save(savedEmission);
     }
-
-    return builder.build();
+    
+    return scopeEmissionRepository.save(emission);
   }
 
   /**
@@ -473,21 +490,109 @@ public class ScopeEmissionService {
       builder.totalEmission(request.getTotalEmission());
     }
 
-    // 제품 코드 정보 업데이트
+    // 자재코드 매핑 업데이트
     if (Boolean.TRUE.equals(request.getHasProductMapping())) {
-      if (request.getCompanyProductCode() != null) {
-        builder.companyProductCode(request.getCompanyProductCode());
+      // 기존 매핑이 있으면 업데이트, 없으면 새로 생성
+      MaterialMapping materialMapping = existingEmission.getMaterialMapping();
+      if (materialMapping != null) {
+        // 기존 매핑 업데이트
+        materialMapping = materialMapping.toBuilder()
+            .internalMaterialCode(request.getCompanyProductCode())
+            .materialName(request.getProductName())
+            .materialDescription("업데이트된 자재: " + request.getProductName())
+            .build();
+      } else {
+        // 새로운 매핑 생성
+        materialMapping = createMaterialMapping(request, 
+            existingEmission.getHeadquartersId(), 
+            existingEmission.getPartnerId(), 
+            existingEmission.getTreePath())
+            .toBuilder()
+            .scopeEmissionId(existingEmission.getId())
+            .build();
       }
-      if (request.getProductName() != null) {
-        builder.productName(request.getProductName());
-      }
+      
+      // MaterialMapping 저장 또는 업데이트
+      MaterialMapping savedMapping = materialMappingRepository.save(materialMapping);
+      builder.materialMapping(savedMapping);
     } else {
-      // 제품 코드 매핑이 false인 경우 제품 코드 정보 제거
-      builder.companyProductCode(null)
-          .productName(null);
+      // 매핑이 false인 경우 매핑 제거
+      builder.materialMapping(null);
     }
 
     return builder.build();
+  }
+
+  // ============================================================================
+  // 자재코드 매핑 헬퍼 메서드 (Material Mapping Helper Methods)
+  // ============================================================================
+
+  /**
+   * MaterialMapping 생성
+   */
+  private MaterialMapping createMaterialMapping(ScopeEmissionRequest request, Long headquartersId, Long partnerId, String treePath) {
+    return MaterialMapping.builder()
+        .headquartersId(headquartersId)
+        .partnerId(partnerId)
+        .partnerLevel(calculatePartnerLevel(treePath))
+        .treePath(treePath)
+        .upstreamMaterialCode(null) // 기존 제품코드는 상위 코드가 없으므로 null
+        .internalMaterialCode(request.getCompanyProductCode())
+        .materialName(request.getProductName())
+        .materialDescription("기존 제품코드에서 전환된 자재: " + request.getProductName())
+        .upstreamPartnerId(null) // 기존 제품코드는 상위 협력사가 없으므로 null
+        .hasDownstreamAssignment(false)
+        .downstreamAssignmentCount(0)
+        .mappingDescription("기존 제품코드에서 자재코드 매핑으로 전환")
+        .isActive(true)
+        .isDeleted(false)
+        .build();
+  }
+
+  /**
+   * MaterialMapping 생성 (업데이트용)
+   */
+  private MaterialMapping createMaterialMapping(ScopeEmissionUpdateRequest request, Long headquartersId, Long partnerId, String treePath) {
+    return MaterialMapping.builder()
+        .headquartersId(headquartersId)
+        .partnerId(partnerId)
+        .partnerLevel(calculatePartnerLevel(treePath))
+        .treePath(treePath)
+        .upstreamMaterialCode(null) // 기존 제품코드는 상위 코드가 없으므로 null
+        .internalMaterialCode(request.getCompanyProductCode())
+        .materialName(request.getProductName())
+        .materialDescription("기존 제품코드에서 전환된 자재: " + request.getProductName())
+        .upstreamPartnerId(null) // 기존 제품코드는 상위 협력사가 없으므로 null
+        .hasDownstreamAssignment(false)
+        .downstreamAssignmentCount(0)
+        .mappingDescription("기존 제품코드에서 자재코드 매핑으로 전환")
+        .isActive(true)
+        .isDeleted(false)
+        .build();
+  }
+
+  /**
+   * 트리 경로로부터 협력사 레벨 계산
+   */
+  private Integer calculatePartnerLevel(String treePath) {
+    if (treePath == null || treePath.trim().isEmpty()) {
+      return 0; // 본사
+    }
+    
+    // treePath 형태: /1/L1-001/L2-003/ -> L1, L2 등으로 레벨 계산
+    String[] parts = treePath.split("/");
+    int level = 0;
+    for (String part : parts) {
+      if (part.startsWith("L")) {
+        try {
+          int partLevel = Integer.parseInt(part.substring(1, 2));
+          level = Math.max(level, partLevel);
+        } catch (NumberFormatException | StringIndexOutOfBoundsException e) {
+          // 파싱 실패 시 기본값 유지
+        }
+      }
+    }
+    return level;
   }
 
 }

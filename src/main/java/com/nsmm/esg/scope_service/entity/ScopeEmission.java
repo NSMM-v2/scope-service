@@ -27,11 +27,11 @@ import java.time.LocalDateTime;
 @Table(name = "scope_emission", indexes = {
         @Index(name = "idx_scope_year_month", columnList = "headquarters_id, reporting_year, reporting_month"),
         @Index(name = "idx_scope_category", columnList = "scope_type, scope1_category_number, scope2_category_number, scope3_category_number"),
-        @Index(name = "idx_product_code", columnList = "headquarters_id, company_product_code, reporting_year, reporting_month"),
         @Index(name = "idx_tree_path", columnList = "tree_path"),
         @Index(name = "idx_partner_scope", columnList = "partner_id, scope_type, reporting_year, reporting_month"),
         @Index(name = "idx_scope_reporting", columnList = "scope_type, reporting_year, reporting_month"),
-        @Index(name = "idx_product_mapping", columnList = "has_product_mapping, company_product_code")
+        @Index(name = "idx_material_mapping", columnList = "material_mapping_id"),
+        @Index(name = "idx_material_assignment", columnList = "material_assignment_id")
 })
 @Getter
 @Builder(toBuilder = true)
@@ -99,14 +99,16 @@ public class ScopeEmission {
     private String scope3CategoryName; // 카테고리명
 
     // ========================================================================
-    // 제품 코드 매핑 정보 (Product Code Mapping)
+    // 자재코드 매핑 관계 (Material Code Mapping Relations)
     // ========================================================================
-
-    @Column(name = "company_product_code", length = 50)
-    private String companyProductCode; // 각 회사별 제품 코드 (L01, L02, L03 등)
-
-    @Column(name = "product_name", length = 100)
-    private String productName; // 제품명 (휠, 엔진, 차체 등)
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "material_mapping_id", foreignKey = @ForeignKey(name = "fk_scope_material_mapping"))
+    private MaterialMapping materialMapping; // 자재코드 매핑 정보
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "material_assignment_id", foreignKey = @ForeignKey(name = "fk_scope_material_assignment"))
+    private MaterialAssignment materialAssignment; // 자재코드 할당 정보
 
     // ========================================================================
     // 프론트엔드 입력 데이터 (Frontend Input Data)
@@ -165,46 +167,97 @@ public class ScopeEmission {
     // ========================================================================
     // 비즈니스 로직 메서드 (Business Logic Methods)
     // ========================================================================
-
+    
     /**
-     * Scope 1 카테고리 설정
+     * 자재코드 매핑 정보 조회
      */
-    public ScopeEmission withScope1Category(Scope1Category category) {
+    public String getUpstreamMaterialCode() {
+        return materialMapping != null ? materialMapping.getUpstreamMaterialCode() : null;
+    }
+    
+    /**
+     * 내부 자재코드 조회
+     */
+    public String getInternalMaterialCode() {
+        return materialMapping != null ? materialMapping.getInternalMaterialCode() : null;
+    }
+    
+    /**
+     * 자재명 조회
+     */
+    public String getMaterialName() {
+        return materialMapping != null ? materialMapping.getMaterialName() : null;
+    }
+    
+    /**
+     * 자재코드 매핑 여부 확인
+     */
+    public boolean hasMaterialMapping() {
+        return materialMapping != null && hasProductMapping;
+    }
+    
+    /**
+     * 자재코드 매핑 설정
+     */
+    public ScopeEmission setMaterialMapping(MaterialMapping mapping) {
         return this.toBuilder()
-                .scope1CategoryNumber(category.getCategoryNumber())
-                .scope1CategoryName(category.getCategoryName())
-                .scope1CategoryGroup(category.getGroupName())
+                .materialMapping(mapping)
+                .hasProductMapping(mapping != null)
                 .build();
     }
-
+    
     /**
-     * Scope 2 카테고리 설정
+     * 자재코드 할당 설정
      */
-    public ScopeEmission withScope2Category(Scope2Category category) {
+    public ScopeEmission setMaterialAssignment(MaterialAssignment assignment) {
         return this.toBuilder()
-                .scope2CategoryNumber(category.getCategoryNumber())
-                .scope2CategoryName(category.getCategoryName())
+                .materialAssignment(assignment)
                 .build();
     }
-
+    
     /**
-     * Scope 3 카테고리 설정
+     * 체인 추적 정보 생성
      */
-    public ScopeEmission withScope3Category(Scope3Category category) {
-        return this.toBuilder()
-                .scope3CategoryNumber(category.getCategoryNumber())
-                .scope3CategoryName(category.getCategoryName())
-                .build();
+    public String getTrackingInfo() {
+        if (!hasMaterialMapping()) {
+            return "직접 입력 데이터";
+        }
+        
+        String upstream = getUpstreamMaterialCode();
+        String internal = getInternalMaterialCode();
+        Long upstreamPartnerId = getUpstreamPartnerId();
+        
+        String upstreamInfo = upstreamPartnerId == null ? "본사" : "Partner-" + upstreamPartnerId;
+        return String.format("%s[%s] → %s[Partner-%d]", upstream, upstreamInfo, internal, partnerId);
     }
-
+    
     /**
-     * 제품 코드 매핑 설정
+     * 수정 가능성 검증
      */
-    public ScopeEmission withProductCode(String companyProductCode, String productName) {
-        return this.toBuilder()
-                .companyProductCode(companyProductCode)
-                .productName(productName)
-                .build();
+    public boolean isModifiable() {
+        // 하위에 할당된 자재코드가 있으면 수정 불가
+        if (materialMapping != null && materialMapping.getHasDownstreamAssignment()) {
+            return false;
+        }
+        return true;
+    }
+    
+    /**
+     * 삭제 가능성 검증
+     */
+    public boolean isDeletable() {
+        // 하위에 할당된 자재코드가 있으면 삭제 불가
+        if (materialMapping != null && materialMapping.getHasDownstreamAssignment()) {
+            return false;
+        }
+        return true;
+    }
+    
+    /**
+     * 상위 협력사 ID 조회
+     */
+    public Long getUpstreamPartnerId() {
+        return materialMapping != null ? materialMapping.getUpstreamPartnerId() : null;
     }
 
     /**
@@ -227,6 +280,20 @@ public class ScopeEmission {
             if (!category.getCategoryName().equals(scope1CategoryName)) {
                 throw new IllegalStateException("Scope 1 카테고리 정보가 일치하지 않습니다");
             }
+        }
+        
+        // 자재코드 매핑 일관성 검증
+        if (materialMapping != null && !hasProductMapping) {
+            throw new IllegalStateException("자재코드 매핑이 있지만 매핑 플래그가 false입니다");
+        }
+        
+        if (hasProductMapping && materialMapping == null) {
+            throw new IllegalStateException("매핑 플래그가 true이지만 자재코드 매핑이 없습니다");
+        }
+        
+        // Scope 1, 2에서만 자재코드 매핑 지원 검증
+        if (materialMapping != null && scopeType == ScopeType.SCOPE3) {
+            throw new IllegalStateException("Scope 3에서는 자재코드 매핑을 지원하지 않습니다");
         }
     }
 }

@@ -27,7 +27,6 @@ import com.nsmm.esg.scope_service.enums.ScopeType;
  * 주요 기능:
  * - 계층적 배출량 집계 (tree_path 기반)
  * - Scope 3 카테고리별 특수 집계 (Cat.1, Cat.2, Cat.4, Cat.5)
- * - 제품별 배출량 집계 (company_product_code 기준)
  * - 종합 집계 결과 제공
  * 
  * 집계 규칙:

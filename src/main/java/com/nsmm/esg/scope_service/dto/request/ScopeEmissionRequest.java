@@ -20,9 +20,6 @@ import java.math.BigDecimal;
  * - 프론트엔드 폼 구조와 1:1 매핑
  * - 제품 코드 매핑 지원
  * - 카테고리별 유효성 검증
- * 
- * @author ESG 프로젝트팀
- * @version 1.0
  */
 @Getter
 @Setter
