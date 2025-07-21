@@ -1,242 +1,184 @@
 package com.nsmm.esg.scope_service.service;
 
+import com.nsmm.esg.scope_service.client.AuthServiceClient;
+import com.nsmm.esg.scope_service.dto.ApiResponse;
 import com.nsmm.esg.scope_service.dto.request.MaterialAssignmentBatchRequest;
 import com.nsmm.esg.scope_service.dto.request.MaterialAssignmentRequest;
 import com.nsmm.esg.scope_service.dto.response.MaterialAssignmentResponse;
+import com.nsmm.esg.scope_service.dto.response.MaterialDataResponse;
 import com.nsmm.esg.scope_service.entity.MaterialAssignment;
 import com.nsmm.esg.scope_service.repository.MaterialAssignmentRepository;
+import com.nsmm.esg.scope_service.util.UuidUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * 자재코드 할당 서비스
- * 
- * 협력사에게 자재코드를 할당하고 관리하는 비즈니스 로직 처리
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class MaterialAssignmentService {
 
     private final MaterialAssignmentRepository materialAssignmentRepository;
+    private final MaterialDataService materialDataService;
+    private final AuthServiceClient authServiceClient;
+
+    // ... (기존 조회 메소드들은 변경 없음) ...
 
     @Transactional(readOnly = true)
-    public List<MaterialAssignmentResponse> getAssignmentsByPartner(String partnerUuid) {
-        log.info("협력사 {}의 자재코드 할당 목록 조회 시작", partnerUuid);
+    public List<MaterialAssignmentResponse> getAssignmentsByPartner(String partnerId) {
+        log.info("협력사 {}의 자재코드 할당 목록 조회 시작", partnerId);
         
-        List<MaterialAssignment> assignments = materialAssignmentRepository.findActiveByToPartnerId(partnerUuid);
+        // UUID → partnerId 변환 (저장 시와 동일한 로직 적용)
+        String businessId = convertToBusinessId(partnerId);
+        log.info("조회용 비즈니스 ID 변환: {} → {}", partnerId, businessId);
         
-        List<MaterialAssignmentResponse> responses = assignments.stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
-        
-        log.info("협력사 {}의 자재코드 할당 목록 조회 완료: {}개", partnerUuid, responses.size());
-        return responses;
+        List<MaterialAssignment> assignments = materialAssignmentRepository.findActiveByToPartnerId(businessId);
+        return assignments.stream().map(this::convertToResponse).collect(Collectors.toList());
     }
 
-    /**
-     * 본사별 모든 자재코드 할당 목록 조회
-     */
     @Transactional(readOnly = true)
     public List<MaterialAssignmentResponse> getAssignmentsByHeadquarters(Long headquartersId, String userType) {
-        log.info("본사 {}의 모든 자재코드 할당 목록 조회 시작", headquartersId);
-        
-        // 본사 권한 검증
         if (!"HEADQUARTERS".equals(userType)) {
             throw new IllegalArgumentException("본사 전체 할당 목록은 본사 계정만 조회할 수 있습니다");
         }
-        
         List<MaterialAssignment> assignments = materialAssignmentRepository.findByHeadquartersId(headquartersId);
-        
-        List<MaterialAssignmentResponse> responses = assignments.stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
-        
-        log.info("본사 {}의 모든 자재코드 할당 목록 조회 완료: {}개", headquartersId, responses.size());
-        return responses;
+        return assignments.stream().map(this::convertToResponse).collect(Collectors.toList());
     }
 
-    /**
-     * 자재코드 할당 생성
-     */
-    @Transactional
-    public MaterialAssignmentResponse createAssignment(MaterialAssignmentRequest request, String userType,
-                                                      String headquartersId, String partnerId) {
-        log.info("자재코드 할당 생성 시작: 협력사 {}, 자재코드 {}", request.getToPartnerId(), request.getMaterialCode());
-        
-        // 중복 체크
-        Optional<MaterialAssignment> existing = materialAssignmentRepository
-                .findByMaterialCodeAndToPartnerId(request.getMaterialCode(), request.getToPartnerId());
-        
-        if (existing.isPresent()) {
-            throw new IllegalArgumentException(
-                String.format("협력사 %d에 이미 자재코드 %s가 할당되어 있습니다", 
-                            request.getToPartnerId(), request.getMaterialCode()));
+    @Transactional(readOnly = true)
+    public List<MaterialDataResponse> getMyMaterialData(String userType, String headquartersId, String partnerId) {
+        log.info("사용자 자재 데이터 조회 시작 - 사용자타입: {}, 본사ID: {}, 협력사ID: {}", userType, headquartersId, partnerId);
+        if ("HEADQUARTERS".equals(userType)) {
+            return materialDataService.getHeadquartersDummyData();
+        } else {
+            return getPartnerMaterialData(partnerId);
         }
-        
-        // 할당 정보 구성
-        MaterialAssignment assignment = buildAssignment(request, userType, headquartersId, partnerId);
-        
-        // 저장
+    }
+
+    private List<MaterialDataResponse> getPartnerMaterialData(String partnerId) {
+        List<MaterialAssignment> assignments = materialAssignmentRepository.findActiveByToPartnerId(partnerId);
+        return assignments.stream().map(this::convertAssignmentToMaterialData).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public MaterialAssignmentResponse createAssignment(MaterialAssignmentRequest request, String userType, String headquartersId, String currentPartnerId) {
+        log.info("자재코드 할당 생성 시작: 받는 협력사 ID {}", request.getToPartnerId());
+
+        materialAssignmentRepository
+                .findByMaterialCodeAndToPartnerId(request.getMaterialCode(), request.getToPartnerId())
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException(
+                        String.format("협력사 %s에 이미 자재코드 %s가 할당되어 있습니다",
+                                    request.getToPartnerId(), request.getMaterialCode()));
+                });
+
+        MaterialAssignment assignment = buildAssignment(request, userType, headquartersId, currentPartnerId);
         MaterialAssignment savedAssignment = materialAssignmentRepository.save(assignment);
-        
         log.info("자재코드 할당 생성 완료: ID {}", savedAssignment.getId());
         return convertToResponse(savedAssignment);
     }
 
-    /**
-     * 자재코드 일괄 할당
-     */
     @Transactional
-    public List<MaterialAssignmentResponse> createBatchAssignments(MaterialAssignmentBatchRequest request, 
-                                                                  String userType, String headquartersId, 
-                                                                  String partnerId) {
-        log.info("자재코드 일괄 할당 시작: 협력사 {}, {}개 자재코드", 
+    public List<MaterialAssignmentResponse> createBatchAssignments(MaterialAssignmentBatchRequest request, String userType, String headquartersId, String currentPartnerId) {
+        log.info("자재코드 일괄 할당 시작: 받는 협력사 ID {}, {}개 자재코드",
                 request.getToPartnerId(), request.getMaterialCodes().size());
-        
+
         List<MaterialAssignment> assignments = request.getMaterialCodes().stream()
                 .map(materialCode -> {
-                    // 중복 체크
                     Optional<MaterialAssignment> existing = materialAssignmentRepository
                             .findByMaterialCodeAndToPartnerId(materialCode.getMaterialCode(), request.getToPartnerId());
-                    
                     if (existing.isPresent()) {
                         log.warn("중복된 자재코드 건너뛰기: {}", materialCode.getMaterialCode());
                         return null;
                     }
-                    
-                    // 개별 요청 객체 생성
                     MaterialAssignmentRequest individualRequest = MaterialAssignmentRequest.builder()
+                            .toPartnerId(request.getToPartnerId())
                             .materialCode(materialCode.getMaterialCode())
                             .materialName(materialCode.getMaterialName())
                             .materialCategory(materialCode.getMaterialCategory())
                             .materialSpec(materialCode.getMaterialSpec())
                             .materialDescription(materialCode.getMaterialDescription())
-                            .toPartnerId(request.getToPartnerId())
-                            .assignedBy(request.getAssignedBy())
-                            .assignmentReason(request.getAssignmentReason())
                             .build();
-                    
-                    return buildAssignment(individualRequest, userType, headquartersId, partnerId);
+                    return buildAssignment(individualRequest, userType, headquartersId, currentPartnerId);
                 })
-                .filter(assignment -> assignment != null) // 중복 제외
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
-        
-        // 일괄 저장
+
         List<MaterialAssignment> savedAssignments = materialAssignmentRepository.saveAll(assignments);
-        
-        List<MaterialAssignmentResponse> responses = savedAssignments.stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
-        
-        log.info("자재코드 일괄 할당 완료: {}개 생성", responses.size());
-        return responses;
+        log.info("자재코드 일괄 할당 완료: {}개 생성", savedAssignments.size());
+        return savedAssignments.stream().map(this::convertToResponse).collect(Collectors.toList());
     }
 
-    /**
-     * 자재코드 할당 수정
-     */
-    @Transactional
-    public MaterialAssignmentResponse updateAssignment(Long assignmentId, MaterialAssignmentRequest request) {
-        log.info("자재코드 할당 수정 시작: ID {}", assignmentId);
-        
-        MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + assignmentId));
-        
-        // 수정 가능 여부 확인
-        if (!assignment.isModifiable()) {
-            throw new IllegalArgumentException("이미 매핑이 생성된 할당은 수정할 수 없습니다");
+    private MaterialAssignment buildAssignment(MaterialAssignmentRequest request, String userType, String headquartersId, String currentPartnerId) {
+        Long hqId = Long.parseLong(headquartersId);
+        String fromPartnerBusinessId = null;
+        Integer fromLevel = 0; // 본사가 할당하는 경우 기본 레벨
+
+        if ("PARTNER".equals(userType)) {
+            fromPartnerBusinessId = currentPartnerId; // 헤더의 X-PARTNER-ID 사용
+            // 협력사의 레벨은 간단히 1로 설정 (필요시 추후 헤더에서 X-LEVEL 사용 가능)
+            fromLevel = 1;
         }
-        
-        // 자재코드가 변경되는 경우 중복 체크
-        if (!assignment.getMaterialCode().equals(request.getMaterialCode())) {
-            Optional<MaterialAssignment> existing = materialAssignmentRepository
-                    .findByMaterialCodeAndToPartnerId(request.getMaterialCode(), request.getToPartnerId());
-            
-            if (existing.isPresent() && !existing.get().getId().equals(assignmentId)) {
-                throw new IllegalArgumentException(
-                    String.format("협력사 %d에 이미 자재코드 %s가 할당되어 있습니다", 
-                                request.getToPartnerId(), request.getMaterialCode()));
-            }
-        }
-        
-        // 정보 업데이트
-        MaterialAssignment updatedAssignment = assignment.toBuilder()
+
+        Integer toLevel = fromLevel + 1;
+
+        // UUID → 비즈니스 ID 변환 로직
+        String toPartnerBusinessId = convertToBusinessId(request.getToPartnerId());
+
+        return MaterialAssignment.builder()
+                .headquartersId(hqId)
+                .fromPartnerId(fromPartnerBusinessId) // 비즈니스 ID 저장
+                .toPartnerId(toPartnerBusinessId) // 변환된 비즈니스 ID 저장
+                .fromLevel(fromLevel)
+                .toLevel(toLevel)
                 .materialCode(request.getMaterialCode())
                 .materialName(request.getMaterialName())
                 .materialCategory(request.getMaterialCategory())
                 .materialDescription(request.getMaterialDescription())
+                .isActive(true)
+                .isMapped(false)
                 .build();
-        
-        MaterialAssignment savedAssignment = materialAssignmentRepository.save(updatedAssignment);
-        
-        log.info("자재코드 할당 수정 완료: ID {}", assignmentId);
-        return convertToResponse(savedAssignment);
     }
 
     /**
-     * 자재코드 할당 삭제
+     * UUID를 비즈니스 ID로 변환하는 메서드
+     * UUID 형식이면 Auth-Service를 호출하여 비즈니스 ID로 변환
+     * 이미 비즈니스 ID 형식이면 그대로 반환
      */
-    @Transactional
-    public void deleteAssignment(Long assignmentId) {
-        log.info("자재코드 할당 삭제 시작: ID {}", assignmentId);
-        
-        MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + assignmentId));
-        
-        // 삭제 가능 여부 확인
-        if (!assignment.isDeletable()) {
-            throw new IllegalArgumentException("이미 매핑이 생성된 할당은 삭제할 수 없습니다");
-        }
-        
-        materialAssignmentRepository.delete(assignment);
-        
-        log.info("자재코드 할당 삭제 완료: ID {}", assignmentId);
-    }
-
-    /**
-     * 자재코드 할당 삭제 가능 여부 확인
-     */
-    @Transactional(readOnly = true)
-    public Map<String, Object> canDeleteAssignment(Long assignmentId) {
-        log.info("자재코드 할당 삭제 가능 여부 확인 시작: ID {}", assignmentId);
-        
-        // 할당 존재 여부 확인
-        MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new IllegalArgumentException("할당을 찾을 수 없습니다: ID " + assignmentId));
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        // Scope 계산기에서 사용 중인지 확인 (isMapped 필드 기준)
-        boolean isMapped = assignment.getIsMapped() != null && assignment.getIsMapped();
-        boolean canDelete = !isMapped;
-        
-        result.put("canDelete", canDelete);
-        
-        if (!canDelete) {
-            result.put("reason", "이 자재코드는 Scope 계산기에서 사용 중이어서 삭제할 수 없습니다.");
-            // 매핑된 코드 정보가 있다면 추가 (현재는 단순히 현재 코드 정보만 반환)
-            result.put("mappedCodes", List.of(assignment.getMaterialCode()));
+    private String convertToBusinessId(String partnerId) {
+        // UUID 형식인지 확인
+        if (UuidUtil.isValidUUID(partnerId)) {
+            log.info("UUID 형식 감지, 비즈니스 ID로 변환 시도: {}", partnerId);
+            try {
+                // Auth-Service 호출하여 UUID → 비즈니스 ID 변환
+                ApiResponse<String> response = authServiceClient.getBusinessIdByUuid(partnerId);
+                if (response != null && response.isSuccess() && response.getData() != null) {
+                    String businessId = response.getData();
+                    log.info("UUID {} → 비즈니스 ID {} 변환 성공", partnerId, businessId);
+                    return businessId;
+                } else {
+                    throw new IllegalArgumentException("Auth-Service에서 UUID 변환 실패: " + partnerId);
+                }
+            } catch (Exception e) {
+                log.error("UUID {} 변환 중 오류 발생: {}", partnerId, e.getMessage());
+                throw new IllegalArgumentException("협력사 UUID 변환에 실패했습니다: " + partnerId, e);
+            }
         } else {
-            result.put("reason", "삭제 가능한 자재코드입니다.");
-            result.put("mappedCodes", List.of());
+            // 이미 비즈니스 ID 형식이면 그대로 반환
+            log.debug("비즈니스 ID 형식으로 그대로 사용: {}", partnerId);
+            return partnerId;
         }
-        
-        log.info("자재코드 할당 삭제 가능 여부 확인 완료: ID {}, canDelete: {}", assignmentId, canDelete);
-        return result;
     }
 
-    /**
-     * MaterialAssignment 엔티티를 Response DTO로 변환
-     */
     private MaterialAssignmentResponse convertToResponse(MaterialAssignment assignment) {
         return MaterialAssignmentResponse.builder()
                 .id(assignment.getId())
@@ -257,31 +199,134 @@ public class MaterialAssignmentService {
                 .updatedAt(assignment.getUpdatedAt())
                 .build();
     }
+    
+    // ... (기타 기존 메소드들은 변경 없음) ...
 
-    /**
-     * 요청 정보로부터 MaterialAssignment 엔티티 구성
-     */
-    private MaterialAssignment buildAssignment(MaterialAssignmentRequest request, String userType, 
-                                             String headquartersId, String partnerId) {
-        Long hqId = Long.parseLong(headquartersId);
-        String fromPartnerId = "HEADQUARTERS".equals(userType) ? null : partnerId;
-        Integer fromLevel = "HEADQUARTERS".equals(userType) ? 0 : 1; // 임시로 1차로 설정
-        Integer toLevel = fromLevel + 1;
-        
-        return MaterialAssignment.builder()
-                .headquartersId(hqId)
-                .fromPartnerId(fromPartnerId)
-                .toPartnerId(request.getToPartnerId())
-                .fromLevel(fromLevel)
-                .toLevel(toLevel)
+    private MaterialDataResponse convertAssignmentToMaterialData(MaterialAssignment assignment) {
+        BigDecimal emissionFactor = getDefaultEmissionFactor(assignment.getMaterialCode(), assignment.getMaterialCategory());
+        return MaterialDataResponse.builder()
+                .materialCode(assignment.getMaterialCode())
+                .materialName(assignment.getMaterialName())
+                .materialCategory(assignment.getMaterialCategory())
+                .materialSubCategory(determineSubCategory(assignment.getMaterialCategory()))
+                .materialDescription(assignment.getMaterialDescription())
+                .materialSpec("협력사 할당 자재 - 스펙 정보 없음")
+                .emissionFactor(emissionFactor)
+                .unit(getDefaultUnit(assignment.getMaterialCategory()))
+                .scopeCategory("SCOPE3")
+                .scope3CategoryNumber(1)
+                .accessType(MaterialDataResponse.AccessType.modifiable)
+                .assignmentSource(assignment.getFromPartnerId() == null ?
+                    MaterialDataResponse.AssignmentSource.headquarters :
+                    MaterialDataResponse.AssignmentSource.parent_partner)
+                .assignedBy(assignment.getFromPartnerId() == null ? "본사" : "상위 협력사")
+                .assignmentReason("협력사 자재 사용을 위한 할당")
+                .isAssigned(true)
+                .isUsed(assignment.getIsMapped())
+                .usageCount(assignment.getMappingCount())
+                .lastUsedDate(assignment.getUpdatedAt() != null ? assignment.getUpdatedAt().toString() : null)
+                .supplierInfo("협력사 관리 자재")
+                .qualityGrade("B")
+                .isEcoFriendly(false)
+                .build();
+    }
+
+    private BigDecimal getDefaultEmissionFactor(String materialCode, String materialCategory) {
+        if (materialCategory == null) return new BigDecimal("2.0");
+        switch (materialCategory.toLowerCase()) {
+            case "강재": case "철강": return new BigDecimal("2.3");
+            case "알루미늄": case "비철금속": return new BigDecimal("11.5");
+            case "플라스틱": return new BigDecimal("3.8");
+            case "고무": return new BigDecimal("3.2");
+            case "전자부품": return new BigDecimal("8.5");
+            case "화학원료": return new BigDecimal("2.1");
+            case "유리": return new BigDecimal("0.9");
+            case "텍스타일": return new BigDecimal("1.8");
+            default: return new BigDecimal("2.0");
+        }
+    }
+
+    private String getDefaultUnit(String materialCategory) {
+        if (materialCategory == null) return "kg";
+        switch (materialCategory.toLowerCase()) {
+            case "강재": case "철강": case "알루미늄": case "비철금속": return "ton";
+            case "플라스틱": case "고무": case "화학원료": return "kg";
+            case "전자부품": return "개";
+            case "유리": case "텍스타일": return "m²";
+            default: return "kg";
+        }
+    }
+
+    private String determineSubCategory(String materialCategory) {
+        if (materialCategory == null) return "일반용";
+        switch (materialCategory.toLowerCase()) {
+            case "강재": case "철강": return "구조용";
+            case "알루미늄": case "비철금속": return "경량화용";
+            case "플라스틱": return "내외장용";
+            case "고무": return "씰링용";
+            case "전자부품": return "제어용";
+            case "화학원료": return "가공용";
+            case "유리": return "투명부품용";
+            case "텍스타일": return "내장용";
+            default: return "일반용";
+        }
+    }
+    
+    @Transactional
+    public MaterialAssignmentResponse updateAssignment(Long assignmentId, MaterialAssignmentRequest request) {
+        log.info("자재코드 할당 수정 시작: ID {}", assignmentId);
+        MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + assignmentId));
+        if (assignment.getIsMapped()) {
+            throw new IllegalArgumentException("이미 매핑이 생성된 할당은 수정할 수 없습니다");
+        }
+        if (!assignment.getMaterialCode().equals(request.getMaterialCode())) {
+            materialAssignmentRepository
+                    .findByMaterialCodeAndToPartnerId(request.getMaterialCode(), request.getToPartnerId())
+                    .ifPresent(existing -> {
+                        if (!existing.getId().equals(assignmentId)) {
+                            throw new IllegalArgumentException(
+                                String.format("협력사 %s에 이미 자재코드 %s가 할당되어 있습니다",
+                                            request.getToPartnerId(), request.getMaterialCode()));
+                        }
+                    });
+        }
+        MaterialAssignment updatedAssignment = assignment.toBuilder()
                 .materialCode(request.getMaterialCode())
                 .materialName(request.getMaterialName())
                 .materialCategory(request.getMaterialCategory())
                 .materialDescription(request.getMaterialDescription())
-                .isActive(true)
-                .isMapped(false)
                 .build();
+        MaterialAssignment savedAssignment = materialAssignmentRepository.save(updatedAssignment);
+        return convertToResponse(savedAssignment);
     }
 
+    @Transactional
+    public void deleteAssignment(Long assignmentId) {
+        log.info("자재코드 할당 삭제 시작: ID {}", assignmentId);
+        MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + assignmentId));
+        if (assignment.getIsMapped()) {
+            throw new IllegalArgumentException("이미 매핑이 생성된 할당은 삭제할 수 없습니다");
+        }
+        materialAssignmentRepository.delete(assignment);
+        log.info("자재코드 할당 삭제 완료: ID {}", assignmentId);
+    }
 
+    @Transactional(readOnly = true)
+    public Map<String, Object> canDeleteAssignment(Long assignmentId) {
+        MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("할당을 찾을 수 없습니다: ID " + assignmentId));
+        Map<String, Object> result = new HashMap<>();
+        boolean isMapped = assignment.getIsMapped() != null && assignment.getIsMapped();
+        result.put("canDelete", !isMapped);
+        if (isMapped) {
+            result.put("reason", "이 자재코드는 Scope 계산기에서 사용 중이어서 삭제할 수 없습니다.");
+            result.put("mappedCodes", List.of(assignment.getMaterialCode()));
+        } else {
+            result.put("reason", "삭제 가능한 자재코드입니다.");
+            result.put("mappedCodes", List.of());
+        }
+        return result;
+    }
 }

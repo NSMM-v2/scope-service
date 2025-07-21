@@ -4,6 +4,7 @@ import com.nsmm.esg.scope_service.dto.ApiResponse;
 import com.nsmm.esg.scope_service.dto.request.MaterialAssignmentBatchRequest;
 import com.nsmm.esg.scope_service.dto.request.MaterialAssignmentRequest;
 import com.nsmm.esg.scope_service.dto.response.MaterialAssignmentResponse;
+import com.nsmm.esg.scope_service.dto.response.MaterialDataResponse;
 import com.nsmm.esg.scope_service.enums.ErrorCode;
 import com.nsmm.esg.scope_service.service.MaterialAssignmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,24 +58,24 @@ public class MaterialAssignmentController {
     // ========================================================================
 
     @Operation(summary = "협력사별 할당된 자재코드 조회", description = "특정 협력사에게 할당된 자재코드 목록을 조회합니다.")
-    @GetMapping("/partner/{partnerUuid}")
+    @GetMapping("/partner/{partnerId}")
     public ResponseEntity<ApiResponse<List<MaterialAssignmentResponse>>> getAssignmentsByPartner(
-            @PathVariable String partnerUuid,
+            @PathVariable String partnerId,
             @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
             @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
             @RequestHeader(value = "X-PARTNER-ID", required = false) String currentPartnerId,
             @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
-        log.info("협력사 {} 자재코드 할당 목록 조회 요청", partnerUuid);
+        log.info("협력사 {} 자재코드 할당 목록 조회 요청", partnerId);
         logHeaders("협력사별 자재코드 할당 조회", userType, headquartersId, currentPartnerId, treePath);
 
         try {
             List<MaterialAssignmentResponse> assignments = materialAssignmentService
-                    .getAssignmentsByPartner(partnerUuid);
+                    .getAssignmentsByPartner(partnerId);
 
             return ResponseEntity.ok(ApiResponse.success(assignments, 
                     String.format("협력사 %s의 자재코드 할당 목록을 조회했습니다. (총 %d개)", 
-                                partnerUuid, assignments.size())));
+                                partnerId, assignments.size())));
 
         } catch (IllegalArgumentException e) {
             log.error("협력사 {} 자재코드 할당 조회 실패: {}", currentPartnerId, e.getMessage());
@@ -136,18 +137,16 @@ public class MaterialAssignmentController {
     @PostMapping
     public ResponseEntity<ApiResponse<MaterialAssignmentResponse>> createAssignment(
             @Valid @RequestBody MaterialAssignmentRequest request,
-            @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
-            @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
-            @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
-            @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+            @RequestHeader(value = "X-USER-TYPE") String userType,
+            @RequestHeader(value = "X-HEADQUARTERS-ID") String headquartersId,
+            @RequestHeader(value = "X-PARTNER-ID", required = false) String currentPartnerId) {
 
-        log.info("자재코드 할당 생성 요청: 협력사 {}, 자재코드 {}", 
-                request.getToPartnerId(), request.getMaterialCode());
-        logHeaders("자재코드 할당 생성", userType, headquartersId, partnerId, treePath);
+        log.info("자재코드 할당 생성 요청: 받는 협력사 ID {}", 
+                request.getToPartnerId());
 
         try {
             MaterialAssignmentResponse response = materialAssignmentService
-                    .createAssignment(request, userType, headquartersId, partnerId);
+                    .createAssignment(request, userType, headquartersId, currentPartnerId);
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(response, 
@@ -177,18 +176,16 @@ public class MaterialAssignmentController {
     @PostMapping("/batch")
     public ResponseEntity<ApiResponse<List<MaterialAssignmentResponse>>> createBatchAssignments(
             @Valid @RequestBody MaterialAssignmentBatchRequest request,
-            @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
-            @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
-            @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
-            @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+            @RequestHeader(value = "X-USER-TYPE") String userType,
+            @RequestHeader(value = "X-HEADQUARTERS-ID") String headquartersId,
+            @RequestHeader(value = "X-PARTNER-ID", required = false) String currentPartnerId) {
 
-        log.info("자재코드 일괄 할당 요청: 협력사 {}, {}개 자재코드", 
+        log.info("자재코드 일괄 할당 요청: 받는 협력사 ID {}, {}개 자재코드", 
                 request.getToPartnerId(), request.getMaterialCodes().size());
-        logHeaders("자재코드 일괄 할당", userType, headquartersId, partnerId, treePath);
 
         try {
             List<MaterialAssignmentResponse> responses = materialAssignmentService
-                    .createBatchAssignments(request, userType, headquartersId, partnerId);
+                    .createBatchAssignments(request, userType, headquartersId, currentPartnerId);
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(responses, 
@@ -332,6 +329,70 @@ public class MaterialAssignmentController {
             }
         } catch (Exception e) {
             log.error("자재코드 할당 삭제 중 서버 오류: {}", e.getMessage());
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+
+    // ========================================================================
+    // 자재 데이터 조회 API (Material Data Query APIs)
+    // ========================================================================
+
+    @Operation(summary = "내 자재 데이터 조회", 
+              description = "로그인 사용자의 사용 가능한 자재 데이터를 조회합니다. 본사는 더미 데이터, 협력사는 할당받은 자재 데이터를 반환합니다.")
+    @GetMapping("/my-materials")
+    public ResponseEntity<ApiResponse<List<MaterialDataResponse>>> getMyMaterialData(
+            @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
+            @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
+            @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+            @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+        log.info("내 자재 데이터 조회 요청 - 사용자타입: {}, 본사ID: {}, 협력사ID: {}", userType, headquartersId, partnerId);
+        logHeaders("내 자재 데이터 조회", userType, headquartersId, partnerId, treePath);
+
+        try {
+            // 필수 헤더 검증
+            if (userType == null || headquartersId == null) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("필수 헤더가 누락되었습니다. (X-USER-TYPE, X-HEADQUARTERS-ID)", 
+                                              ErrorCode.VALIDATION_ERROR.getCode()));
+            }
+
+            // 협력사인 경우 PARTNER-ID 필수
+            if ("PARTNER".equals(userType) && partnerId == null) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("협력사 계정은 X-PARTNER-ID 헤더가 필수입니다.", 
+                                              ErrorCode.VALIDATION_ERROR.getCode()));
+            }
+
+            List<MaterialDataResponse> materialData = materialAssignmentService
+                    .getMyMaterialData(userType, headquartersId, partnerId);
+
+            String responseMessage;
+            if ("HEADQUARTERS".equals(userType)) {
+                responseMessage = String.format("본사 자재 데이터를 조회했습니다. (총 %d개)", materialData.size());
+            } else {
+                responseMessage = String.format("협력사 %s의 할당된 자재 데이터를 조회했습니다. (총 %d개)", 
+                                              partnerId, materialData.size());
+            }
+
+            return ResponseEntity.ok(ApiResponse.success(materialData, responseMessage));
+
+        } catch (NumberFormatException e) {
+            log.error("헤더 형식 오류: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("본사 ID가 올바른 숫자 형식이 아닙니다.", ErrorCode.VALIDATION_ERROR.getCode()));
+        } catch (IllegalArgumentException e) {
+            log.error("내 자재 데이터 조회 실패: {}", e.getMessage());
+            if (e.getMessage().contains("권한")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error(e.getMessage(), ErrorCode.ACCESS_DENIED.getCode()));
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+            }
+        } catch (Exception e) {
+            log.error("내 자재 데이터 조회 중 서버 오류: {}", e.getMessage());
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
         }

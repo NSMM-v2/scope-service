@@ -24,7 +24,7 @@ import java.util.List;
 public class MaterialAssignmentBatchRequest {
 
     // 할당 대상 정보
-    @NotNull(message = "할당받는 협력사 UUID는 필수입니다")
+    @NotNull(message = "할당받는 협력사 ID는 필수입니다")
     private String toPartnerId;
 
     // 할당할 자재코드 목록

@@ -46,10 +46,10 @@ public class MaterialAssignment {
     private Long headquartersId; // 본사 ID
 
     @Column(name = "from_partner_id", length = 36)
-    private String fromPartnerId; // 할당하는 협력사 UUID (null이면 본사)
+    private String fromPartnerId; // 할당하는 협력사 ID (비즈니스 ID)
 
     @Column(name = "to_partner_id", nullable = false, length = 36)
-    private String toPartnerId; // 할당받는 협력사 UUID
+    private String toPartnerId; // 할당받는 협력사 ID (비즈니스 ID)
 
     @Column(name = "from_level")
     private Integer fromLevel; // 할당하는 협력사 레벨 (0: 본사, 1: 1차사...)

@@ -1,5 +1,6 @@
 package com.nsmm.esg.scope_service.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -38,7 +39,8 @@ public class MaterialAssignmentRequest {
     private String materialDescription;
 
     // 할당 대상 정보
-    @NotNull(message = "할당받는 협력사 UUID는 필수입니다")
+    @NotNull(message = "할당받는 협력사 ID는 필수입니다")
+    @Schema(description = "할당받는 협력사 ID (비즈니스 ID)", required = true)
     private String toPartnerId;
 
     // 할당 메타 정보
