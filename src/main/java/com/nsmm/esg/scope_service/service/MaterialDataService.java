@@ -1,10 +1,10 @@
 package com.nsmm.esg.scope_service.service;
 
-import com.nsmm.esg.scope_service.dto.response.MaterialDataResponse;
+import com.nsmm.esg.scope_service.dto.response.MaterialAssignmentResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,7 +12,7 @@ import java.util.List;
  * 자재 데이터 서비스
  * 
  * 현대자동차 기준 자동차 제조업 특화 더미 데이터 제공
- * 본사에서 관리하는 핵심 자재들의 ESG 배출량 정보 포함
+ * MaterialAssignment 엔티티 필드만을 사용한 본사 더미 데이터 생성
  */
 @Slf4j
 @Service
@@ -20,12 +20,12 @@ public class MaterialDataService {
 
     /**
      * 현대자동차 본사용 더미 자재 데이터 생성
-     * 자동차 제조업에 실제 사용되는 주요 소재들을 기반으로 구성
+     * MaterialAssignment 엔티티 필드만 사용하여 구성
      */
-    public List<MaterialDataResponse> getHeadquartersDummyData() {
+    public List<MaterialAssignmentResponse> getHeadquartersDummyData() {
         log.info("현대자동차 본사용 더미 자재 데이터 생성 시작");
         
-        List<MaterialDataResponse> dummyData = new ArrayList<>();
+        List<MaterialAssignmentResponse> dummyData = new ArrayList<>();
         
         // 강재류 (Steel Materials) - 차체 및 구조용
         dummyData.addAll(createSteelMaterials());
@@ -58,103 +58,95 @@ public class MaterialDataService {
     /**
      * 강재류 더미 데이터 생성
      */
-    private List<MaterialDataResponse> createSteelMaterials() {
-        List<MaterialDataResponse> steelData = new ArrayList<>();
+    private List<MaterialAssignmentResponse> createSteelMaterials() {
+        List<MaterialAssignmentResponse> steelData = new ArrayList<>();
         
-        steelData.add(MaterialDataResponse.builder()
+        steelData.add(MaterialAssignmentResponse.builder()
+                .id(1L)
+                .headquartersId(1L)
+                .fromPartnerId(null) // 본사가 직접 할당
+                .toPartnerId("DUMMY_PARTNER_01")
+                .fromLevel(0) // 본사 레벨
+                .toLevel(1) // 1차 협력사
                 .materialCode("ST001")
                 .materialName("냉간압연강판")
                 .materialCategory("강재")
-                .materialSubCategory("차체용")
                 .materialDescription("자동차 차체 외판용 고품질 냉간압연강판")
-                .materialSpec("두께: 0.6-2.0mm, 강도: 270-550MPa")
-                .emissionFactor(new BigDecimal("2.3"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("차체 외판 제조용 주력 소재")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(150)
-                .lastUsedDate("2024-01-15")
-                .supplierInfo("포스코, 현대제철")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(30))
+                .updatedAt(LocalDateTime.now().minusDays(10))
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_01) : ST001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
-        steelData.add(MaterialDataResponse.builder()
+        steelData.add(MaterialAssignmentResponse.builder()
+                .id(2L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_02")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("ST002")
                 .materialName("열간압연강판")
                 .materialCategory("강재")
-                .materialSubCategory("프레임용")
                 .materialDescription("자동차 프레임 및 구조용 열간압연강판")
-                .materialSpec("두께: 2.0-6.0mm, 강도: 300-700MPa")
-                .emissionFactor(new BigDecimal("2.1"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("프레임 및 섀시 제조용")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(120)
-                .lastUsedDate("2024-01-14")
-                .supplierInfo("포스코, 현대제철")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(25))
+                .updatedAt(LocalDateTime.now().minusDays(8))
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_02) : ST002")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
-        steelData.add(MaterialDataResponse.builder()
+        steelData.add(MaterialAssignmentResponse.builder()
+                .id(3L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_03")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("ST003")
                 .materialName("고장력강판")
                 .materialCategory("강재")
-                .materialSubCategory("안전부품용")
                 .materialDescription("충돌 안전성 향상을 위한 고장력강판")
-                .materialSpec("인장강도: 780-1500MPa, 두께: 1.0-3.0mm")
-                .emissionFactor(new BigDecimal("2.8"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("안전성 강화용 핵심 소재")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(80)
-                .lastUsedDate("2024-01-13")
-                .supplierInfo("포스코")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(20))
+                .updatedAt(LocalDateTime.now().minusDays(5))
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_03) : ST003")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
-        steelData.add(MaterialDataResponse.builder()
+        steelData.add(MaterialAssignmentResponse.builder()
+                .id(4L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_04")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("ST004")
                 .materialName("스테인리스강")
                 .materialCategory("강재")
-                .materialSubCategory("배기계통용")
                 .materialDescription("배기 시스템용 내식성 스테인리스강")
-                .materialSpec("SUS304, SUS409L, 두께: 1.0-2.5mm")
-                .emissionFactor(new BigDecimal("6.2"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("배기 시스템 내구성 확보")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(45)
-                .lastUsedDate("2024-01-12")
-                .supplierInfo("포스코, 현대제철")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(18))
+                .updatedAt(LocalDateTime.now().minusDays(3))
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_04) : ST004")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
         return steelData;
@@ -163,79 +155,73 @@ public class MaterialDataService {
     /**
      * 비철금속 더미 데이터 생성
      */
-    private List<MaterialDataResponse> createNonFerrousMaterials() {
-        List<MaterialDataResponse> nonFerrousData = new ArrayList<>();
+    private List<MaterialAssignmentResponse> createNonFerrousMaterials() {
+        List<MaterialAssignmentResponse> nonFerrousData = new ArrayList<>();
         
-        nonFerrousData.add(MaterialDataResponse.builder()
+        nonFerrousData.add(MaterialAssignmentResponse.builder()
+                .id(5L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_05")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("AL001")
                 .materialName("알루미늄합금")
                 .materialCategory("비철금속")
-                .materialSubCategory("경량화용")
                 .materialDescription("자동차 경량화용 고강도 알루미늄합금")
-                .materialSpec("6061-T6, 밀도: 2.7g/cm³")
-                .emissionFactor(new BigDecimal("11.5"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("연비 향상을 위한 경량화")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(90)
-                .lastUsedDate("2024-01-11")
-                .supplierInfo("한국알루미늄, 노벨리스")
-                .qualityGrade("A")
-                .isEcoFriendly(true)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(15))
+                .updatedAt(LocalDateTime.now().minusDays(2))
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_05) : AL001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
-        nonFerrousData.add(MaterialDataResponse.builder()
+        nonFerrousData.add(MaterialAssignmentResponse.builder()
+                .id(6L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_06")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("CU001")
                 .materialName("구리선재")
                 .materialCategory("비철금속")
-                .materialSubCategory("전기용")
                 .materialDescription("전기 배선용 고순도 구리선재")
-                .materialSpec("순도: 99.9%, 직경: 0.5-5.0mm")
-                .emissionFactor(new BigDecimal("4.2"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("전기 시스템 구성")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(200)
-                .lastUsedDate("2024-01-10")
-                .supplierInfo("LS전선, 대한전선")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(12))
+                .updatedAt(LocalDateTime.now().minusDays(1))
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_06) : CU001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
-        nonFerrousData.add(MaterialDataResponse.builder()
+        nonFerrousData.add(MaterialAssignmentResponse.builder()
+                .id(7L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_07")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("ZN001")
                 .materialName("아연도금강판")
                 .materialCategory("비철금속")
-                .materialSubCategory("방청용")
                 .materialDescription("차체 부식 방지용 아연도금강판")
-                .materialSpec("도금량: 60-275g/m², 두께: 0.8-2.0mm")
-                .emissionFactor(new BigDecimal("2.9"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("차체 부식 방지")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(110)
-                .lastUsedDate("2024-01-09")
-                .supplierInfo("포스코, 현대제철")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(10))
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_07) : ZN001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
         return nonFerrousData;
@@ -244,55 +230,51 @@ public class MaterialDataService {
     /**
      * 플라스틱 소재 더미 데이터 생성
      */
-    private List<MaterialDataResponse> createPlasticMaterials() {
-        List<MaterialDataResponse> plasticData = new ArrayList<>();
+    private List<MaterialAssignmentResponse> createPlasticMaterials() {
+        List<MaterialAssignmentResponse> plasticData = new ArrayList<>();
         
-        plasticData.add(MaterialDataResponse.builder()
+        plasticData.add(MaterialAssignmentResponse.builder()
+                .id(8L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_08")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("PL001")
                 .materialName("ABS수지")
                 .materialCategory("플라스틱")
-                .materialSubCategory("내장재용")
                 .materialDescription("내장재용 고품질 ABS 수지")
-                .materialSpec("인장강도: 40MPa, 밀도: 1.05g/cm³")
-                .emissionFactor(new BigDecimal("3.8"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("내장재 고급화")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(75)
-                .lastUsedDate("2024-01-08")
-                .supplierInfo("LG화학, 삼성SDI")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(8))
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_08) : PL001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
-        plasticData.add(MaterialDataResponse.builder()
+        plasticData.add(MaterialAssignmentResponse.builder()
+                .id(9L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_09")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("PL002")
                 .materialName("폴리프로필렌")
                 .materialCategory("플라스틱")
-                .materialSubCategory("범퍼용")
                 .materialDescription("범퍼 및 외장부품용 PP 소재")
-                .materialSpec("충격강도: 15kJ/m², 밀도: 0.9g/cm³")
-                .emissionFactor(new BigDecimal("1.9"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("범퍼 충격 흡수")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(95)
-                .lastUsedDate("2024-01-07")
-                .supplierInfo("LG화학, SK케미칼")
-                .qualityGrade("A")
-                .isEcoFriendly(true)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(6))
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_09) : PL002")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
         return plasticData;
@@ -301,31 +283,29 @@ public class MaterialDataService {
     /**
      * 고무 소재 더미 데이터 생성
      */
-    private List<MaterialDataResponse> createRubberMaterials() {
-        List<MaterialDataResponse> rubberData = new ArrayList<>();
+    private List<MaterialAssignmentResponse> createRubberMaterials() {
+        List<MaterialAssignmentResponse> rubberData = new ArrayList<>();
         
-        rubberData.add(MaterialDataResponse.builder()
+        rubberData.add(MaterialAssignmentResponse.builder()
+                .id(10L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_10")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("RB001")
                 .materialName("타이어고무")
                 .materialCategory("고무")
-                .materialSubCategory("타이어용")
                 .materialDescription("고성능 타이어 제조용 천연/합성고무")
-                .materialSpec("경도: 60-80 Shore A, 내열성: 120℃")
-                .emissionFactor(new BigDecimal("3.2"))
-                .unit("ton")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("타이어 성능 최적화")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(60)
-                .lastUsedDate("2024-01-06")
-                .supplierInfo("한국타이어, 넥센타이어")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(4))
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_10) : RB001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
         return rubberData;
@@ -334,55 +314,51 @@ public class MaterialDataService {
     /**
      * 전자부품 소재 더미 데이터 생성
      */
-    private List<MaterialDataResponse> createElectronicMaterials() {
-        List<MaterialDataResponse> electronicData = new ArrayList<>();
+    private List<MaterialAssignmentResponse> createElectronicMaterials() {
+        List<MaterialAssignmentResponse> electronicData = new ArrayList<>();
         
-        electronicData.add(MaterialDataResponse.builder()
+        electronicData.add(MaterialAssignmentResponse.builder()
+                .id(11L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_11")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("BT001")
                 .materialName("리튬배터리")
                 .materialCategory("전자부품")
-                .materialSubCategory("전기차용")
                 .materialDescription("전기차용 고용량 리튬이온 배터리")
-                .materialSpec("용량: 100kWh, 전압: 400V")
-                .emissionFactor(new BigDecimal("12.8"))
-                .unit("개")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("전기차 핵심 부품")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(25)
-                .lastUsedDate("2024-01-05")
-                .supplierInfo("SK이노베이션, LG에너지솔루션")
-                .qualityGrade("A")
-                .isEcoFriendly(true)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(2))
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_11) : BT001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
-        electronicData.add(MaterialDataResponse.builder()
+        electronicData.add(MaterialAssignmentResponse.builder()
+                .id(12L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_12")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("SC001")
                 .materialName("반도체칩")
                 .materialCategory("전자부품")
-                .materialSubCategory("ECU용")
                 .materialDescription("엔진제어용 고성능 반도체칩")
-                .materialSpec("32bit ARM, 동작온도: -40~125℃")
-                .emissionFactor(new BigDecimal("8.5"))
-                .unit("개")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("엔진 제어 정밀도 향상")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(500)
-                .lastUsedDate("2024-01-04")
-                .supplierInfo("삼성전자, SK하이닉스")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_12) : SC001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
         return electronicData;
@@ -391,55 +367,51 @@ public class MaterialDataService {
     /**
      * 화학원료 더미 데이터 생성
      */
-    private List<MaterialDataResponse> createChemicalMaterials() {
-        List<MaterialDataResponse> chemicalData = new ArrayList<>();
+    private List<MaterialAssignmentResponse> createChemicalMaterials() {
+        List<MaterialAssignmentResponse> chemicalData = new ArrayList<>();
         
-        chemicalData.add(MaterialDataResponse.builder()
+        chemicalData.add(MaterialAssignmentResponse.builder()
+                .id(13L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_13")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("PA001")
                 .materialName("자동차도료")
                 .materialCategory("화학원료")
-                .materialSubCategory("도장용")
                 .materialDescription("친환경 수성 자동차 도료")
-                .materialSpec("고체분: 45%, VOC: 420g/L 이하")
-                .emissionFactor(new BigDecimal("2.1"))
-                .unit("L")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("차체 도장 품질 향상")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(1200)
-                .lastUsedDate("2024-01-03")
-                .supplierInfo("KCC, 노루페인트")
-                .qualityGrade("A")
-                .isEcoFriendly(true)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_13) : PA001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
-        chemicalData.add(MaterialDataResponse.builder()
+        chemicalData.add(MaterialAssignmentResponse.builder()
+                .id(14L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_14")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("AD001")
                 .materialName("구조용접착제")
                 .materialCategory("화학원료")
-                .materialSubCategory("조립용")
                 .materialDescription("차체 구조 접착용 고강도 접착제")
-                .materialSpec("전단강도: 25MPa, 경화온도: 180℃")
-                .emissionFactor(new BigDecimal("3.7"))
-                .unit("kg")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("차체 강성 향상")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(800)
-                .lastUsedDate("2024-01-02")
-                .supplierInfo("헨켈, 3M")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_14) : AD001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
         return chemicalData;
@@ -448,31 +420,29 @@ public class MaterialDataService {
     /**
      * 유리 및 세라믹 더미 데이터 생성
      */
-    private List<MaterialDataResponse> createGlassCeramicMaterials() {
-        List<MaterialDataResponse> glassData = new ArrayList<>();
+    private List<MaterialAssignmentResponse> createGlassCeramicMaterials() {
+        List<MaterialAssignmentResponse> glassData = new ArrayList<>();
         
-        glassData.add(MaterialDataResponse.builder()
+        glassData.add(MaterialAssignmentResponse.builder()
+                .id(15L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_15")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("GL001")
                 .materialName("강화유리")
                 .materialCategory("유리")
-                .materialSubCategory("창유리용")
                 .materialDescription("자동차 창유리용 강화안전유리")
-                .materialSpec("두께: 3-6mm, 투과율: 70% 이상")
-                .emissionFactor(new BigDecimal("0.9"))
-                .unit("m²")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("시야 확보 및 안전성")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(300)
-                .lastUsedDate("2024-01-01")
-                .supplierInfo("한국유리, 피엘케이")
-                .qualityGrade("A")
-                .isEcoFriendly(false)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_15) : GL001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
         return glassData;
@@ -481,31 +451,29 @@ public class MaterialDataService {
     /**
      * 텍스타일 소재 더미 데이터 생성
      */
-    private List<MaterialDataResponse> createTextileMaterials() {
-        List<MaterialDataResponse> textileData = new ArrayList<>();
+    private List<MaterialAssignmentResponse> createTextileMaterials() {
+        List<MaterialAssignmentResponse> textileData = new ArrayList<>();
         
-        textileData.add(MaterialDataResponse.builder()
+        textileData.add(MaterialAssignmentResponse.builder()
+                .id(16L)
+                .headquartersId(1L)
+                .fromPartnerId(null)
+                .toPartnerId("DUMMY_PARTNER_16")
+                .fromLevel(0)
+                .toLevel(1)
                 .materialCode("TX001")
                 .materialName("시트원단")
                 .materialCategory("텍스타일")
-                .materialSubCategory("시트용")
                 .materialDescription("고급 시트용 인조가죽 및 원단")
-                .materialSpec("내마모성: 100,000회, 난연성: FMVSS302")
-                .emissionFactor(new BigDecimal("1.8"))
-                .unit("m²")
-                .scopeCategory("SCOPE3")
-                .scope3CategoryNumber(1)
-                .accessType(MaterialDataResponse.AccessType.full_access)
-                .assignmentSource(MaterialDataResponse.AssignmentSource.dummy_data)
-                .assignedBy("현대자동차 본사")
-                .assignmentReason("시트 품질 향상")
-                .isAssigned(true)
-                .isUsed(true)
-                .usageCount(400)
-                .lastUsedDate("2023-12-31")
-                .supplierInfo("효성, 코오롱")
-                .qualityGrade("A")
-                .isEcoFriendly(true)
+                .isActive(true)
+                .isMapped(false)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .mappingCount(0)
+                .activeMappingCount(0L)
+                .assignmentInfo("본사 → 협력사(DUMMY_PARTNER_16) : TX001")
+                .isModifiable(true)
+                .isDeletable(true)
                 .build());
 
         return textileData;

@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
  * 특정 Scope 타입의 카테고리별 연간 총 배출량 정보를 담는 DTO
  * 로그인된 사용자의 컨텍스트에 맞는 카테고리별 연간 데이터 제공
  */
-@Data
+@Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

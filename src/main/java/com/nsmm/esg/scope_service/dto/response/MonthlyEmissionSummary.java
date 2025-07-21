@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
  * 차트 및 테이블 데이터 표시에 사용됩니다.
  *
  */
-@Data
+@Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

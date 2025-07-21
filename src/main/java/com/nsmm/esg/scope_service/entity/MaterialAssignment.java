@@ -9,7 +9,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -168,28 +167,8 @@ public class MaterialAssignment {
             this.isMapped = true;
         }
     }
-    
-    /**
-     * 배출량 데이터 추가
-     */
-    public void addScopeEmission(ScopeEmission emission) {
-        if (scopeEmissions == null) {
-            scopeEmissions = new ArrayList<>();
-        }
-        scopeEmissions.add(emission);
-    }
-    
-    /**
-     * 총 배출량 계산
-     */
-    public BigDecimal getTotalEmission() {
-        return scopeEmissions != null ? 
-            scopeEmissions.stream()
-                .filter(emission -> emission.getTotalEmission() != null)
-                .map(ScopeEmission::getTotalEmission)
-                .reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.ZERO;
-    }
-    
+
+
     /**
      * 데이터 무결성 검증
      */
@@ -198,25 +177,15 @@ public class MaterialAssignment {
         if (isActive && !isMapped && getMappingCount() > 0) {
             return false; // 매핑이 있는데 플래그가 false
         }
-        
+
         // 매핑됨으로 표시되었지만 실제 매핑이 없는 경우
         if (isMapped && getActiveMappingCount() == 0) {
             return false; // 플래그는 true인데 활성 매핑이 없음
         }
-        
+
         return true;
     }
     
-    /**
-     * 할당 요약 정보
-     */
-    public String getSummaryInfo() {
-        return String.format(
-            "자재코드: %s | 대상: %s차사 | 매핑수: %d | 총배출량: %s tCO2eq", 
-            materialCode, 
-            toLevel,
-            getActiveMappingCount(),
-            getTotalEmission().toString()
-        );
-    }
+
+
 }

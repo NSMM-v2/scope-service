@@ -4,7 +4,6 @@ import com.nsmm.esg.scope_service.dto.ApiResponse;
 import com.nsmm.esg.scope_service.dto.request.MaterialAssignmentBatchRequest;
 import com.nsmm.esg.scope_service.dto.request.MaterialAssignmentRequest;
 import com.nsmm.esg.scope_service.dto.response.MaterialAssignmentResponse;
-import com.nsmm.esg.scope_service.dto.response.MaterialDataResponse;
 import com.nsmm.esg.scope_service.enums.ErrorCode;
 import com.nsmm.esg.scope_service.service.MaterialAssignmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -341,7 +340,7 @@ public class MaterialAssignmentController {
     @Operation(summary = "내 자재 데이터 조회", 
               description = "로그인 사용자의 사용 가능한 자재 데이터를 조회합니다. 본사는 더미 데이터, 협력사는 할당받은 자재 데이터를 반환합니다.")
     @GetMapping("/my-materials")
-    public ResponseEntity<ApiResponse<List<MaterialDataResponse>>> getMyMaterialData(
+    public ResponseEntity<ApiResponse<List<MaterialAssignmentResponse>>> getMyMaterialData(
             @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
             @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
             @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
@@ -365,7 +364,7 @@ public class MaterialAssignmentController {
                                               ErrorCode.VALIDATION_ERROR.getCode()));
             }
 
-            List<MaterialDataResponse> materialData = materialAssignmentService
+            List<MaterialAssignmentResponse> materialData = materialAssignmentService
                     .getMyMaterialData(userType, headquartersId, partnerId);
 
             String responseMessage;
