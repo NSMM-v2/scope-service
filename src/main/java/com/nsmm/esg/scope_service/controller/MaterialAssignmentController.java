@@ -150,7 +150,7 @@ public class MaterialAssignmentController {
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(response, 
                             String.format("협력사 %s에 자재코드 %s를 성공적으로 할당했습니다.", 
-                                        request.getToPartnerId(), request.getMaterialCode())));
+                                        request.getToPartnerId(), request.getMaterialInfo().getMaterialCode())));
 
         } catch (IllegalArgumentException e) {
             log.error("자재코드 할당 생성 실패: {}", e.getMessage());
@@ -221,7 +221,7 @@ public class MaterialAssignmentController {
             @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
             @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
-        log.info("자재코드 할당 수정 요청: ID {}, 자재코드 {}", assignmentId, request.getMaterialCode());
+        log.info("자재코드 할당 수정 요청: ID {}, 자재코드 {}", assignmentId, request.getMaterialInfo().getMaterialCode());
         logHeaders("자재코드 할당 수정", userType, headquartersId, partnerId, treePath);
 
         try {

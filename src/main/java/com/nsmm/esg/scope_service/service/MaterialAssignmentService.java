@@ -127,11 +127,11 @@ public class MaterialAssignmentService {
 
         // 중복 할당 검증
         materialAssignmentRepository
-                .findByMaterialCodeAndToPartnerId(request.getMaterialCode(), request.getToPartnerId())
+                .findByMaterialCodeAndToPartnerId(request.getMaterialInfo().getMaterialCode(), request.getToPartnerId())
                 .ifPresent(existing -> {
                     throw new IllegalArgumentException(
                         String.format("협력사 %s에 이미 자재코드 %s가 할당되어 있습니다",
-                                    request.getToPartnerId(), request.getMaterialCode()));
+                                    request.getToPartnerId(), request.getMaterialInfo().getMaterialCode()));
                 });
 
         MaterialAssignment assignment = buildAssignment(request, userType, headquartersId, currentPartnerId);
@@ -156,22 +156,20 @@ public class MaterialAssignmentService {
                 request.getToPartnerId(), request.getMaterialCodes().size());
 
         List<MaterialAssignment> assignments = request.getMaterialCodes().stream()
-                .map(materialCode -> {
+                .map(materialInfo -> {
                     // 중복 검사 후 건너뛰기
                     Optional<MaterialAssignment> existing = materialAssignmentRepository
-                            .findByMaterialCodeAndToPartnerId(materialCode.getMaterialCode(), request.getToPartnerId());
+                            .findByMaterialCodeAndToPartnerId(materialInfo.getMaterialCode(), request.getToPartnerId());
                     if (existing.isPresent()) {
-                        log.warn("중복된 자재코드 건너뛰기: {}", materialCode.getMaterialCode());
+                        log.warn("중복된 자재코드 건너뛰기: {}", materialInfo.getMaterialCode());
                         return null;
                     }
-                    // 개별 요청 객체 생성
+                    // 개별 요청 객체 생성 (MaterialInfo 객체 직접 사용)
                     MaterialAssignmentRequest individualRequest = MaterialAssignmentRequest.builder()
                             .toPartnerId(request.getToPartnerId())
-                            .materialCode(materialCode.getMaterialCode())
-                            .materialName(materialCode.getMaterialName())
-                            .materialCategory(materialCode.getMaterialCategory())
-                            .materialSpec(materialCode.getMaterialSpec())
-                            .materialDescription(materialCode.getMaterialDescription())
+                            .materialInfo(materialInfo)
+                            .assignedBy(request.getAssignedBy())
+                            .assignmentReason(request.getAssignmentReason())
                             .build();
                     return buildAssignment(individualRequest, userType, headquartersId, currentPartnerId);
                 })
@@ -206,24 +204,24 @@ public class MaterialAssignmentService {
         }
         
         // 자재코드가 변경되는 경우 중복 검증
-        if (!assignment.getMaterialCode().equals(request.getMaterialCode())) {
+        if (!assignment.getMaterialCode().equals(request.getMaterialInfo().getMaterialCode())) {
             materialAssignmentRepository
-                    .findByMaterialCodeAndToPartnerId(request.getMaterialCode(), request.getToPartnerId())
+                    .findByMaterialCodeAndToPartnerId(request.getMaterialInfo().getMaterialCode(), request.getToPartnerId())
                     .ifPresent(existing -> {
                         if (!existing.getId().equals(assignmentId)) {
                             throw new IllegalArgumentException(
                                 String.format("협력사 %s에 이미 자재코드 %s가 할당되어 있습니다",
-                                            request.getToPartnerId(), request.getMaterialCode()));
+                                            request.getToPartnerId(), request.getMaterialInfo().getMaterialCode()));
                         }
                     });
         }
         
         // 할당 정보 업데이트
         MaterialAssignment updatedAssignment = assignment.toBuilder()
-                .materialCode(request.getMaterialCode())
-                .materialName(request.getMaterialName())
-                .materialCategory(request.getMaterialCategory())
-                .materialDescription(request.getMaterialDescription())
+                .materialCode(request.getMaterialInfo().getMaterialCode())
+                .materialName(request.getMaterialInfo().getMaterialName())
+                .materialCategory(request.getMaterialInfo().getMaterialCategory())
+                .materialDescription(request.getMaterialInfo().getMaterialDescription())
                 .build();
         
         MaterialAssignment savedAssignment = materialAssignmentRepository.save(updatedAssignment);
@@ -312,10 +310,10 @@ public class MaterialAssignmentService {
                 .toPartnerId(toPartnerBusinessId) // 변환된 비즈니스 ID 저장
                 .fromLevel(fromLevel)
                 .toLevel(toLevel)
-                .materialCode(request.getMaterialCode())
-                .materialName(request.getMaterialName())
-                .materialCategory(request.getMaterialCategory())
-                .materialDescription(request.getMaterialDescription())
+                .materialCode(request.getMaterialInfo().getMaterialCode())
+                .materialName(request.getMaterialInfo().getMaterialName())
+                .materialCategory(request.getMaterialInfo().getMaterialCategory())
+                .materialDescription(request.getMaterialInfo().getMaterialDescription())
                 .isActive(true)
                 .isMapped(false)
                 .build();
