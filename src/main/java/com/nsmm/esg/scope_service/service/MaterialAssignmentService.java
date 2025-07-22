@@ -353,6 +353,122 @@ public class MaterialAssignmentService {
         }
     }
 
+    // ============================================================================
+    // 매핑 상태 관리 메서드 (Mapping Status Management)
+    // ============================================================================
+
+    /**
+     * 자재코드 할당의 매핑 상태를 업데이트합니다.
+     * Scope 계산기에서 자재코드를 사용하거나 해제할 때 호출됩니다.
+     * 
+     * @param assignmentId 할당 ID
+     * @param isMapped 매핑 상태 (true: 매핑됨, false: 매핑 해제)
+     * @return 업데이트된 할당 정보
+     * @throws IllegalArgumentException 할당이 존재하지 않는 경우
+     */
+    @Transactional
+    public MaterialAssignmentResponse updateMappingStatus(Long assignmentId, boolean isMapped) {
+        log.info("자재코드 할당 매핑 상태 업데이트: assignmentId={}, isMapped={}", assignmentId, isMapped);
+        
+        MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + assignmentId));
+        
+        // 매핑 상태 업데이트
+        MaterialAssignment updatedAssignment = assignment.toBuilder()
+                .isMapped(isMapped)
+                .build();
+        
+        MaterialAssignment savedAssignment = materialAssignmentRepository.save(updatedAssignment);
+        log.info("자재코드 할당 매핑 상태 업데이트 완료: assignmentId={}, isMapped={}", 
+                assignmentId, savedAssignment.getIsMapped());
+        
+        return convertToResponse(savedAssignment);
+    }
+
+    /**
+     * 매핑 가능한 자재코드 할당 목록을 조회합니다.
+     * isMapped = false인 활성 할당만 반환합니다.
+     * 
+     * @param partnerId 협력사 ID
+     * @return 매핑 가능한 할당 목록
+     */
+    @Transactional(readOnly = true)
+    public List<MaterialAssignmentResponse> getMappableAssignments(String partnerId) {
+        log.info("매핑 가능한 자재코드 할당 조회: partnerId={}", partnerId);
+        
+        String businessId = convertToBusinessId(partnerId);
+        List<MaterialAssignment> assignments = materialAssignmentRepository.findActiveByToPartnerId(businessId);
+        
+        // isMapped = false인 할당만 필터링
+        List<MaterialAssignment> mappableAssignments = assignments.stream()
+                .filter(assignment -> !assignment.getIsMapped())
+                .collect(Collectors.toList());
+        
+        log.info("매핑 가능한 자재코드 할당 개수: {}/{}", mappableAssignments.size(), assignments.size());
+        
+        return mappableAssignments.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 자재코드 할당의 매핑 상태를 조회합니다.
+     * 
+     * @param assignmentId 할당 ID
+     * @return 매핑 상태 정보 (isMapped, activeMappingCount 등)
+     * @throws IllegalArgumentException 할당이 존재하지 않는 경우
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getMappingStatus(Long assignmentId) {
+        MaterialAssignment assignment = materialAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + assignmentId));
+        
+        Map<String, Object> status = new HashMap<>();
+        status.put("assignmentId", assignmentId);
+        status.put("materialCode", assignment.getMaterialCode());
+        status.put("isMapped", assignment.getIsMapped());
+        status.put("isActive", assignment.getIsActive());
+        status.put("mappingCount", assignment.getMappingCount());
+        status.put("activeMappingCount", assignment.getActiveMappingCount());
+        status.put("isModifiable", assignment.isModifiable());
+        status.put("isDeletable", assignment.isDeletable());
+        
+        return status;
+    }
+
+    /**
+     * 협력사의 매핑 통계 정보를 조회합니다.
+     * 
+     * @param partnerId 협력사 ID
+     * @return 매핑 통계 정보
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getMappingStatistics(String partnerId) {
+        log.info("협력사 매핑 통계 조회: partnerId={}", partnerId);
+        
+        String businessId = convertToBusinessId(partnerId);
+        List<MaterialAssignment> assignments = materialAssignmentRepository.findActiveByToPartnerId(businessId);
+        
+        long totalAssignments = assignments.size();
+        long mappedAssignments = assignments.stream()
+                .filter(MaterialAssignment::getIsMapped)
+                .count();
+        long unmappedAssignments = totalAssignments - mappedAssignments;
+        
+        Map<String, Object> statistics = new HashMap<>();
+        statistics.put("partnerId", partnerId);
+        statistics.put("totalAssignments", totalAssignments);
+        statistics.put("mappedAssignments", mappedAssignments);
+        statistics.put("unmappedAssignments", unmappedAssignments);
+        statistics.put("mappingRate", totalAssignments > 0 ? 
+                (double) mappedAssignments / totalAssignments * 100 : 0.0);
+        
+        log.info("협력사 {} 매핑 통계: 전체={}, 매핑됨={}, 미매핑={}", 
+                partnerId, totalAssignments, mappedAssignments, unmappedAssignments);
+        
+        return statistics;
+    }
+
     /**
      * MaterialAssignment 엔티티를 MaterialAssignmentResponse DTO로 변환합니다.
      * 엔티티의 모든 필드와 비즈니스 메서드 결과를 매핑합니다.

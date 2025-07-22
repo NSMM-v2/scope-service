@@ -334,6 +334,121 @@ public class MaterialAssignmentController {
     }
 
     // ========================================================================
+    // 자재코드 매핑 관리 API (Material Code Mapping Management APIs)
+    // ========================================================================
+
+    @Operation(summary = "매핑 가능한 자재코드 할당 조회", 
+              description = "Scope 계산기에서 사용할 수 있는 매핑 가능한 자재코드 할당 목록을 조회합니다. (isMapped = false)")
+    @GetMapping("/mappable")
+    public ResponseEntity<ApiResponse<List<MaterialAssignmentResponse>>> getMappableAssignments(
+            @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
+            @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
+            @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+            @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+        log.info("매핑 가능한 자재코드 할당 조회 요청 - 협력사ID: {}", partnerId);
+        logHeaders("매핑 가능한 자재코드 할당 조회", userType, headquartersId, partnerId, treePath);
+
+        try {
+            // 협력사만 자신의 매핑 가능한 할당을 조회할 수 있음
+            if (!"PARTNER".equals(userType) || partnerId == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("협력사만 자신의 매핑 가능한 자재코드를 조회할 수 있습니다.", 
+                                              ErrorCode.ACCESS_DENIED.getCode()));
+            }
+
+            List<MaterialAssignmentResponse> mappableAssignments = materialAssignmentService
+                    .getMappableAssignments(partnerId);
+
+            return ResponseEntity.ok(ApiResponse.success(mappableAssignments, 
+                    String.format("협력사 %s의 매핑 가능한 자재코드 %d개를 조회했습니다.", 
+                                partnerId, mappableAssignments.size())));
+
+        } catch (IllegalArgumentException e) {
+            log.error("매핑 가능한 자재코드 할당 조회 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+        } catch (Exception e) {
+            log.error("매핑 가능한 자재코드 할당 조회 중 서버 오류: {}", e.getMessage());
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+
+    @Operation(summary = "자재코드 할당 매핑 상태 조회", 
+              description = "특정 자재코드 할당의 매핑 상태와 통계 정보를 조회합니다.")
+    @GetMapping("/{assignmentId}/mapping-status")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMappingStatus(
+            @PathVariable Long assignmentId,
+            @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
+            @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
+            @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+            @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+        log.info("자재코드 할당 매핑 상태 조회 요청: assignmentId={}", assignmentId);
+        logHeaders("자재코드 할당 매핑 상태 조회", userType, headquartersId, partnerId, treePath);
+
+        try {
+            Map<String, Object> mappingStatus = materialAssignmentService
+                    .getMappingStatus(assignmentId);
+
+            return ResponseEntity.ok(ApiResponse.success(mappingStatus, 
+                    String.format("자재코드 할당 %d의 매핑 상태를 조회했습니다.", assignmentId)));
+
+        } catch (IllegalArgumentException e) {
+            log.error("자재코드 할당 매핑 상태 조회 실패: {}", e.getMessage());
+            if (e.getMessage().contains("찾을 수 없습니다")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error(e.getMessage(), ErrorCode.DATA_NOT_FOUND.getCode()));
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+            }
+        } catch (Exception e) {
+            log.error("자재코드 할당 매핑 상태 조회 중 서버 오류: {}", e.getMessage());
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+
+    @Operation(summary = "협력사 매핑 통계 조회", 
+              description = "협력사의 자재코드 할당 매핑 통계 정보를 조회합니다.")
+    @GetMapping("/mapping-statistics")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMappingStatistics(
+            @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
+            @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
+            @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+            @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+        log.info("협력사 매핑 통계 조회 요청 - 협력사ID: {}", partnerId);
+        logHeaders("협력사 매핑 통계 조회", userType, headquartersId, partnerId, treePath);
+
+        try {
+            // 협력사만 자신의 매핑 통계를 조회할 수 있음
+            if (!"PARTNER".equals(userType) || partnerId == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("협력사만 자신의 매핑 통계를 조회할 수 있습니다.", 
+                                              ErrorCode.ACCESS_DENIED.getCode()));
+            }
+
+            Map<String, Object> statistics = materialAssignmentService
+                    .getMappingStatistics(partnerId);
+
+            return ResponseEntity.ok(ApiResponse.success(statistics, 
+                    String.format("협력사 %s의 매핑 통계를 조회했습니다.", partnerId)));
+
+        } catch (IllegalArgumentException e) {
+            log.error("협력사 매핑 통계 조회 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+        } catch (Exception e) {
+            log.error("협력사 매핑 통계 조회 중 서버 오류: {}", e.getMessage());
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+
+    // ========================================================================
     // 자재 데이터 조회 API (Material Data Query APIs)
     // ========================================================================
 

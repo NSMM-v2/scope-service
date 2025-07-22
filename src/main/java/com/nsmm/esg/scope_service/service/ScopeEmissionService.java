@@ -10,6 +10,7 @@ import com.nsmm.esg.scope_service.enums.Scope3Category;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.repository.ScopeEmissionRepository;
 import com.nsmm.esg.scope_service.repository.MaterialMappingRepository;
+import com.nsmm.esg.scope_service.repository.MaterialAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class ScopeEmissionService {
 
   private final ScopeEmissionRepository scopeEmissionRepository;
   private final MaterialMappingRepository materialMappingRepository;
+  private final MaterialAssignmentRepository materialAssignmentRepository;
 
   // ============================================================================
   // 생성 메서드
@@ -190,7 +192,13 @@ public class ScopeEmissionService {
     // 2. 권한 검증
     validateDeletePermissions(emission, userType, headquartersId, partnerId, treePath);
 
-    // 3. 삭제
+    // 3. 자재코드 매핑 해제 (있는 경우)
+    if (emission.getMaterialMapping() != null) {
+      log.info("배출량 데이터 삭제와 함께 자재코드 매핑 해제: emissionId={}", id);
+      removeMaterialAssignmentMapping(id);
+    }
+
+    // 4. 삭제
     scopeEmissionRepository.delete(emission);
     log.info("Scope 배출량 데이터 삭제 완료: id={}", id);
   }
@@ -593,6 +601,208 @@ public class ScopeEmissionService {
       }
     }
     return level;
+  }
+
+  // ============================================================================
+  // 자재코드 할당 매핑 관리 메서드 (Material Assignment Mapping Management)
+  // ============================================================================
+
+  /**
+   * 자재코드 할당과 배출량 데이터를 매핑
+   * Scope 계산기에서 자재코드를 선택했을 때 호출
+   * 
+   * @param materialAssignmentId 자재코드 할당 ID
+   * @param scopeEmissionId 배출량 데이터 ID
+   * @return 생성된 MaterialMapping
+   */
+  @Transactional
+  public MaterialMapping createMaterialAssignmentMapping(Long materialAssignmentId, Long scopeEmissionId) {
+    log.info("자재코드 할당 매핑 생성 시작: assignmentId={}, emissionId={}", materialAssignmentId, scopeEmissionId);
+    
+    try {
+      // 1. MaterialAssignment 조회 및 검증
+      MaterialAssignment assignment = materialAssignmentRepository.findById(materialAssignmentId)
+          .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + materialAssignmentId));
+      
+      if (!assignment.getIsActive()) {
+        throw new IllegalArgumentException("비활성화된 자재코드 할당입니다: " + materialAssignmentId);
+      }
+      
+      // 2. ScopeEmission 조회 및 검증
+      ScopeEmission scopeEmission = scopeEmissionRepository.findById(scopeEmissionId)
+          .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + scopeEmissionId));
+      
+      if (scopeEmission.getScopeType() == ScopeType.SCOPE3) {
+        throw new IllegalArgumentException("Scope 3는 자재코드 매핑을 지원하지 않습니다");
+      }
+      
+      // 3. MaterialMapping 생성
+      MaterialMapping materialMapping = MaterialMapping.builder()
+          .headquartersId(assignment.getHeadquartersId())
+          .partnerId(scopeEmission.getPartnerId())
+          .partnerLevel(calculatePartnerLevel(scopeEmission.getTreePath()))
+          .treePath(scopeEmission.getTreePath())
+          .upstreamMaterialCode(assignment.getMaterialCode()) // 할당받은 자재코드
+          .internalMaterialCode(generateInternalMaterialCode(assignment.getMaterialCode())) // 내부 자재코드 생성
+          .materialName(assignment.getMaterialName())
+          .materialDescription(assignment.getMaterialDescription())
+          .upstreamPartnerId(parsePartnerId(assignment.getFromPartnerId())) // 할당해준 협력사 ID
+          .scopeEmissionId(scopeEmissionId)
+          .hasDownstreamAssignment(false)
+          .downstreamAssignmentCount(0)
+          .mappingDescription(String.format("할당코드 %s를 통한 자재코드 매핑", assignment.getMaterialCode()))
+          .isActive(true)
+          .isDeleted(false)
+          .build();
+      
+      // 4. MaterialMapping 저장
+      MaterialMapping savedMapping = materialMappingRepository.save(materialMapping);
+      
+      // 5. MaterialAssignment와 관계 설정 및 isMapped 상태 업데이트
+      savedMapping.setMaterialAssignment(assignment);
+      assignment.addMapping(savedMapping); // 이 메서드에서 자동으로 isMapped = true 설정
+      materialAssignmentRepository.save(assignment);
+      
+      // 6. ScopeEmission 업데이트
+      ScopeEmission updatedEmission = scopeEmission.setMaterialMapping(savedMapping);
+      scopeEmissionRepository.save(updatedEmission);
+      
+      log.info("자재코드 할당 매핑 생성 완료: mappingId={}, assignmentId={}, isMapped={}",
+          savedMapping.getId(), materialAssignmentId, assignment.getIsMapped());
+      
+      return savedMapping;
+      
+    } catch (Exception e) {
+      log.error("자재코드 할당 매핑 생성 중 오류 발생: assignmentId={}, emissionId={}", 
+          materialAssignmentId, scopeEmissionId, e);
+      throw e;
+    }
+  }
+
+  /**
+   * 자재코드 할당 매핑 해제
+   * Scope 계산기에서 데이터를 삭제했을 때 호출
+   * 
+   * @param scopeEmissionId 삭제할 배출량 데이터 ID
+   */
+  @Transactional
+  public void removeMaterialAssignmentMapping(Long scopeEmissionId) {
+    log.info("자재코드 할당 매핑 해제 시작: emissionId={}", scopeEmissionId);
+    
+    try {
+      // 1. ScopeEmission 조회
+      ScopeEmission scopeEmission = scopeEmissionRepository.findById(scopeEmissionId)
+          .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + scopeEmissionId));
+      
+      // 2. MaterialMapping 조회 및 해제
+      MaterialMapping materialMapping = scopeEmission.getMaterialMapping();
+      if (materialMapping != null) {
+        log.info("매핑 해제 대상: mappingId={}, assignmentId={}", 
+            materialMapping.getId(), materialMapping.getMaterialAssignmentId());
+        
+        // 3. MaterialAssignment에서 매핑 제거
+        MaterialAssignment assignment = materialMapping.getMaterialAssignment();
+        if (assignment != null) {
+          // 매핑 제거
+          materialMapping.removeFromAssignment();
+          
+          // 해당 할당의 활성 매핑이 모두 제거되었는지 확인
+          long activeMappingCount = assignment.getActiveMappingCount();
+          log.info("할당 ID {} 의 활성 매핑 개수: {}", assignment.getId(), activeMappingCount);
+          
+          // 활성 매핑이 없으면 isMapped = false로 변경
+          if (activeMappingCount == 0) {
+            MaterialAssignment updatedAssignment = assignment.toBuilder()
+                .isMapped(false)
+                .build();
+            materialAssignmentRepository.save(updatedAssignment);
+            log.info("자재코드 할당 매핑 상태 해제: assignmentId={}, isMapped=false", assignment.getId());
+          }
+        }
+        
+        // 4. MaterialMapping 소프트 삭제
+        MaterialMapping deletedMapping = materialMapping.softDelete();
+        materialMappingRepository.save(deletedMapping);
+        
+        // 5. ScopeEmission에서 매핑 제거
+        ScopeEmission updatedEmission = scopeEmission.toBuilder()
+            .materialMapping(null)
+            .hasProductMapping(false)
+            .build();
+        scopeEmissionRepository.save(updatedEmission);
+        
+        log.info("자재코드 할당 매핑 해제 완료: emissionId={}, mappingId={}", 
+            scopeEmissionId, materialMapping.getId());
+      } else {
+        log.info("매핑이 존재하지 않는 배출량 데이터: emissionId={}", scopeEmissionId);
+      }
+      
+    } catch (Exception e) {
+      log.error("자재코드 할당 매핑 해제 중 오류 발생: emissionId={}", scopeEmissionId, e);
+      throw e;
+    }
+  }
+
+  /**
+   * 자재코드 할당의 매핑 상태 조회
+   * 
+   * @param materialAssignmentId 자재코드 할당 ID
+   * @return 매핑 상태 정보
+   */
+  @Transactional(readOnly = true)
+  public boolean isAssignmentMapped(Long materialAssignmentId) {
+    MaterialAssignment assignment = materialAssignmentRepository.findById(materialAssignmentId)
+        .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + materialAssignmentId));
+    
+    return assignment.getIsMapped();
+  }
+
+  /**
+   * 매핑 가능한 자재코드 할당 목록 조회
+   * isMapped = false 또는 현재 사용자가 소유한 매핑된 할당만 조회
+   * 
+   * @param partnerId 협력사 ID
+   * @return 매핑 가능한 할당 목록
+   */
+  @Transactional(readOnly = true)
+  public List<MaterialAssignment> getMappableAssignments(String partnerId) {
+    log.info("매핑 가능한 자재코드 할당 조회: partnerId={}", partnerId);
+    
+    // 활성 상태이면서 (매핑되지 않았거나 현재 사용자 소유)인 할당만 조회
+    return materialAssignmentRepository.findActiveByToPartnerId(partnerId);
+  }
+
+  // ============================================================================
+  // 헬퍼 메서드 (Helper Methods)
+  // ============================================================================
+
+  /**
+   * 내부 자재코드 생성
+   * 상위 자재코드를 기반으로 내부 자재코드 생성
+   */
+  private String generateInternalMaterialCode(String upstreamCode) {
+    if (upstreamCode == null || upstreamCode.trim().isEmpty()) {
+      return "INT_" + System.currentTimeMillis() % 10000;
+    }
+    
+    // 상위 코드에 내부 접두어 추가
+    return "INT_" + upstreamCode;
+  }
+
+  /**
+   * 협력사 ID 파싱 (String -> Long)
+   */
+  private Long parsePartnerId(String partnerIdStr) {
+    if (partnerIdStr == null || partnerIdStr.trim().isEmpty()) {
+      return null; // 본사인 경우
+    }
+    
+    try {
+      return Long.parseLong(partnerIdStr);
+    } catch (NumberFormatException e) {
+      log.warn("협력사 ID 파싱 실패: {}, null로 설정", partnerIdStr);
+      return null;
+    }
   }
 
 }

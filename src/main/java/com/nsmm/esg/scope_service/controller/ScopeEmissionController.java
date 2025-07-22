@@ -7,6 +7,7 @@ import com.nsmm.esg.scope_service.dto.ApiResponse;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.enums.ErrorCode;
 import com.nsmm.esg.scope_service.service.ScopeEmissionService;
+import com.nsmm.esg.scope_service.entity.MaterialMapping;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -252,6 +253,135 @@ public class ScopeEmissionController {
       }
     } catch (Exception e) {
       log.error("Scope 배출량 삭제 중 서버 오류: {}", e.getMessage());
+      return ResponseEntity.internalServerError()
+          .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+    }
+  }
+
+  // ========================================================================
+  // 자재코드 매핑 관리 API (Material Assignment Mapping APIs)
+  // ========================================================================
+
+  @Operation(summary = "자재코드 할당 매핑 생성", 
+            description = "Scope 계산기에서 자재코드를 선택했을 때 배출량 데이터와 자재코드 할당을 매핑합니다.")
+  @PostMapping("/emissions/{scopeEmissionId}/material-mapping/{materialAssignmentId}")
+  public ResponseEntity<ApiResponse<MaterialMapping>> createMaterialAssignmentMapping(
+      @PathVariable Long scopeEmissionId,
+      @PathVariable Long materialAssignmentId,
+      @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
+      @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
+      @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+    log.info("자재코드 할당 매핑 생성 요청: emissionId={}, assignmentId={}", scopeEmissionId, materialAssignmentId);
+    logHeaders("자재코드 할당 매핑 생성", userType, headquartersId, partnerId, treePath);
+
+    try {
+      // 협력사만 자신의 데이터에 대해 매핑을 생성할 수 있음
+      if (!"PARTNER".equals(userType) || partnerId == null) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(ApiResponse.error("협력사만 자재코드 매핑을 생성할 수 있습니다.", ErrorCode.ACCESS_DENIED.getCode()));
+      }
+
+      MaterialMapping mapping = scopeEmissionService.createMaterialAssignmentMapping(
+          materialAssignmentId, scopeEmissionId);
+
+      return ResponseEntity.status(HttpStatus.CREATED)
+          .body(ApiResponse.success(mapping, 
+              String.format("배출량 데이터 %d와 자재코드 할당 %d의 매핑을 생성했습니다.", 
+                          scopeEmissionId, materialAssignmentId)));
+
+    } catch (IllegalArgumentException e) {
+      log.error("자재코드 할당 매핑 생성 실패: {}", e.getMessage());
+      if (e.getMessage().contains("찾을 수 없습니다")) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ApiResponse.error(e.getMessage(), ErrorCode.DATA_NOT_FOUND.getCode()));
+      } else if (e.getMessage().contains("Scope 3")) {
+        return ResponseEntity.badRequest()
+            .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+      } else {
+        return ResponseEntity.badRequest()
+            .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+      }
+    } catch (Exception e) {
+      log.error("자재코드 할당 매핑 생성 중 서버 오류: {}", e.getMessage());
+      return ResponseEntity.internalServerError()
+          .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+    }
+  }
+
+  @Operation(summary = "자재코드 할당 매핑 해제", 
+            description = "Scope 계산기에서 데이터를 삭제할 때 자재코드 할당 매핑을 해제합니다.")
+  @DeleteMapping("/emissions/{scopeEmissionId}/material-mapping")
+  public ResponseEntity<ApiResponse<String>> removeMaterialAssignmentMapping(
+      @PathVariable Long scopeEmissionId,
+      @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
+      @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
+      @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+    log.info("자재코드 할당 매핑 해제 요청: emissionId={}", scopeEmissionId);
+    logHeaders("자재코드 할당 매핑 해제", userType, headquartersId, partnerId, treePath);
+
+    try {
+      // 협력사만 자신의 데이터에 대해 매핑을 해제할 수 있음
+      if (!"PARTNER".equals(userType) || partnerId == null) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(ApiResponse.error("협력사만 자재코드 매핑을 해제할 수 있습니다.", ErrorCode.ACCESS_DENIED.getCode()));
+      }
+
+      scopeEmissionService.removeMaterialAssignmentMapping(scopeEmissionId);
+
+      return ResponseEntity.ok(ApiResponse.success("매핑 해제 완료", 
+          String.format("배출량 데이터 %d의 자재코드 매핑을 해제했습니다.", scopeEmissionId)));
+
+    } catch (IllegalArgumentException e) {
+      log.error("자재코드 할당 매핑 해제 실패: {}", e.getMessage());
+      if (e.getMessage().contains("찾을 수 없습니다")) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ApiResponse.error(e.getMessage(), ErrorCode.DATA_NOT_FOUND.getCode()));
+      } else {
+        return ResponseEntity.badRequest()
+            .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+      }
+    } catch (Exception e) {
+      log.error("자재코드 할당 매핑 해제 중 서버 오류: {}", e.getMessage());
+      return ResponseEntity.internalServerError()
+          .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+    }
+  }
+
+  @Operation(summary = "자재코드 할당 매핑 상태 확인", 
+            description = "특정 자재코드 할당이 매핑되었는지 확인합니다.")
+  @GetMapping("/material-assignments/{materialAssignmentId}/is-mapped")
+  public ResponseEntity<ApiResponse<Boolean>> isAssignmentMapped(
+      @PathVariable Long materialAssignmentId,
+      @RequestHeader(value = "X-USER-TYPE", required = false) String userType,
+      @RequestHeader(value = "X-HEADQUARTERS-ID", required = false) String headquartersId,
+      @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+    log.info("자재코드 할당 매핑 상태 확인 요청: assignmentId={}", materialAssignmentId);
+    logHeaders("자재코드 할당 매핑 상태 확인", userType, headquartersId, partnerId, treePath);
+
+    try {
+      boolean isMapped = scopeEmissionService.isAssignmentMapped(materialAssignmentId);
+
+      return ResponseEntity.ok(ApiResponse.success(isMapped, 
+          String.format("자재코드 할당 %d의 매핑 상태: %s", materialAssignmentId, 
+                       isMapped ? "매핑됨" : "매핑되지 않음")));
+
+    } catch (IllegalArgumentException e) {
+      log.error("자재코드 할당 매핑 상태 확인 실패: {}", e.getMessage());
+      if (e.getMessage().contains("찾을 수 없습니다")) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ApiResponse.error(e.getMessage(), ErrorCode.DATA_NOT_FOUND.getCode()));
+      } else {
+        return ResponseEntity.badRequest()
+            .body(ApiResponse.error(e.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+      }
+    } catch (Exception e) {
+      log.error("자재코드 할당 매핑 상태 확인 중 서버 오류: {}", e.getMessage());
       return ResponseEntity.internalServerError()
           .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
     }
