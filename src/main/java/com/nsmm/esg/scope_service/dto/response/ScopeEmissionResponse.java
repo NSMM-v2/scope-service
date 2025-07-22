@@ -61,20 +61,33 @@ public class ScopeEmissionResponse {
   private String scope3CategoryName; // 카테고리명
 
   // ========================================================================
-  // 제품 코드 매핑 정보 (Product Code Mapping)
+  // 자재 코드 매핑 정보 (Material Code Mapping)
   // ========================================================================
 
-  @Schema(description = "회사별 제품 코드", example = "L01")
-  private String companyProductCode; // 각 회사별 제품 코드
+  @Schema(description = "회사별 자재 코드", example = "L01")
+  private String companyMaterialCode; // 각 회사별 자재 코드
 
-  @Schema(description = "제품명", example = "휠")
-  private String productName; // 제품명
+  @Schema(description = "자재명", example = "휠")
+  private String materialName; // 자재명
+
+  // ========================================================================
+  // 자재코드 매핑 정보 (Material Code Mapping)
+  // ========================================================================
+
+  @Schema(description = "상위에서 할당받은 자재코드", example = "A100")
+  private String mappedMaterialCode; // 상위에서 할당받은 자재코드 (upstream material code)
+
+  @Schema(description = "내부 자재코드", example = "B100")
+  private String assignedMaterialCode; // 내부 자재코드 (internal material code)
+
+  @Schema(description = "매핑된 자재명", example = "철강 부품")
+  private String mappedMaterialName; // 자재명
 
   // ========================================================================
   // 프론트엔드 입력 데이터 (Frontend Input Data)
   // ========================================================================
 
-  @Schema(description = "대분류", example = "구매한 제품 및 서비스")
+  @Schema(description = "대분류", example = "구매한 자재 및 서비스")
   private String majorCategory; // 대분류
 
   @Schema(description = "구분", example = "원재료")
@@ -102,8 +115,8 @@ public class ScopeEmissionResponse {
   @Schema(description = "입력 타입", example = "MANUAL")
   private InputType inputType;
 
-  @Schema(description = "제품 코드 매핑 여부", example = "false")
-  private Boolean hasProductMapping;
+  @Schema(description = "자재 코드 매핑 여부", example = "false")
+  private Boolean hasMaterialMapping;
 
   @Schema(description = "공장 설비 활성화 여부", example = "false")
   private Boolean factoryEnabled;
@@ -140,8 +153,11 @@ public class ScopeEmissionResponse {
         .scope2CategoryName(emission.getScope2CategoryName())
         .scope3CategoryNumber(emission.getScope3CategoryNumber())
         .scope3CategoryName(emission.getScope3CategoryName())
-        .companyProductCode(emission.getInternalMaterialCode()) // 자재코드 매핑에서 내부 코드 가져오기
-        .productName(emission.getMaterialName()) // 자재코드 매핑에서 자재명 가져오기
+        .companyMaterialCode(emission.getInternalMaterialCode()) // 자재코드 매핑에서 내부 코드 가져오기
+        .materialName(emission.getMaterialName()) // 자재코드 매핑에서 자재명 가져오기
+        .mappedMaterialCode(emission.getUpstreamMaterialCode()) // 상위에서 할당받은 자재코드
+        .assignedMaterialCode(emission.getInternalMaterialCode()) // 내부 자재코드
+        .mappedMaterialName(emission.getMaterialName()) // 매핑된 자재명
         .majorCategory(emission.getMajorCategory())
         .subcategory(emission.getSubcategory())
         .rawMaterial(emission.getRawMaterial())
@@ -150,7 +166,7 @@ public class ScopeEmissionResponse {
         .emissionFactor(emission.getEmissionFactor())
         .totalEmission(emission.getTotalEmission())
         .inputType(emission.getInputType())
-        .hasProductMapping(emission.getHasProductMapping())
+        .hasMaterialMapping(emission.getHasMaterialMapping())
         .factoryEnabled(emission.getFactoryEnabled())
         .reportingYear(emission.getReportingYear())
         .reportingMonth(emission.getReportingMonth())

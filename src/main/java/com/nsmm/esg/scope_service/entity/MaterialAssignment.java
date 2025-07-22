@@ -146,14 +146,7 @@ public class MaterialAssignment {
         return materialMappings != null ? materialMappings.size() : 0;
     }
     
-    /**
-     * 활성 매핑 개수 조회
-     */
-    public long getActiveMappingCount() {
-        return materialMappings != null ? 
-            materialMappings.stream().filter(mapping -> mapping.getIsActive() && !mapping.getIsDeleted()).count() : 0;
-    }
-    
+
     /**
      * 매핑 추가
      */
@@ -169,22 +162,7 @@ public class MaterialAssignment {
     }
 
 
-    /**
-     * 데이터 무결성 검증
-     */
-    public boolean validateIntegrity() {
-        // 활성 상태이지만 매핑이 없는 경우 검증
-        if (isActive && !isMapped && getMappingCount() > 0) {
-            return false; // 매핑이 있는데 플래그가 false
-        }
 
-        // 매핑됨으로 표시되었지만 실제 매핑이 없는 경우
-        if (isMapped && getActiveMappingCount() == 0) {
-            return false; // 플래그는 true인데 활성 매핑이 없음
-        }
-
-        return true;
-    }
     
 
 

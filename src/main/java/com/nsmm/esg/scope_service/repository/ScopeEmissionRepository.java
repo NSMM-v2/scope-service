@@ -45,20 +45,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
-        // 협력사 기준 ScopeType/연/월별 총 배출량 합계 (트리 경로 기반)
-        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
-                        "WHERE s.headquartersId = :headquartersId " +
-                        "AND s.treePath LIKE CONCAT(:treePath, '%') " +
-                        "AND s.scopeType = :scopeType " +
-                        "AND s.reportingYear = :year " +
-                        "AND s.reportingMonth = :month")
-        BigDecimal sumTotalEmissionByScopeTypeAndTreePathForPartner(
-                        @Param("headquartersId") Long headquartersId,
-                        @Param("treePath") String treePath,
-                        @Param("scopeType") ScopeType scopeType,
-                        @Param("year") Integer year,
-                        @Param("month") Integer month);
-        
 
         // Scope1 카테고리별 연간 배출량 집계 - 본사 직접 입력 데이터만
         @Query("SELECT s.scope1CategoryNumber, " +

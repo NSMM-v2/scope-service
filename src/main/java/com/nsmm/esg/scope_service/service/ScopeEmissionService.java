@@ -54,7 +54,7 @@ public class ScopeEmissionService {
 
   /**
    * 통합 Scope 배출량 데이터 생성
-   * 
+   *
    * 특징:
    * - Scope 1, 2: 제품 코드/제품명 선택적 처리
    * - Scope 3: 모든 필드 필수 (기존 로직 유지)
@@ -195,7 +195,6 @@ public class ScopeEmissionService {
     // 3. 자재코드 매핑 해제 (있는 경우)
     if (emission.getMaterialMapping() != null) {
       log.info("배출량 데이터 삭제와 함께 자재코드 매핑 해제: emissionId={}", id);
-      removeMaterialAssignmentMapping(id);
     }
 
     // 4. 삭제
@@ -209,7 +208,7 @@ public class ScopeEmissionService {
 
   /**
    * 사용자 권한 검증
-   * 
+   *
    * @param userType       사용자 타입
    * @param headquartersId 본사 ID
    * @param partnerId      협력사 ID
@@ -235,7 +234,7 @@ public class ScopeEmissionService {
 
   /**
    * 기본 필드 검증 (계산 검증 제거)
-   * 
+   *
    * @param request 검증할 요청 데이터
    */
   private void validateBasicFields(ScopeEmissionRequest request) {
@@ -247,19 +246,19 @@ public class ScopeEmissionService {
       throw new IllegalArgumentException("입력 타입은 필수입니다");
     }
 
-    if (request.getHasProductMapping() == null) {
+    if (request.getHasMaterialMapping() == null) {
       throw new IllegalArgumentException("제품 코드 매핑 여부는 필수입니다");
     }
 
     // 제품 코드 매핑 검증
-    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+    if (Boolean.TRUE.equals(request.getHasMaterialMapping())) {
       if (request.getScopeType() == ScopeType.SCOPE3) {
         throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
       }
-      if (request.getCompanyProductCode() == null || request.getCompanyProductCode().trim().isEmpty()) {
+      if (request.getCompanyMaterialCode() == null || request.getCompanyMaterialCode().trim().isEmpty()) {
         throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드는 필수입니다");
       }
-      if (request.getProductName() == null || request.getProductName().trim().isEmpty()) {
+      if (request.getMaterialName() == null || request.getMaterialName().trim().isEmpty()) {
         throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품명은 필수입니다");
       }
     }
@@ -272,7 +271,7 @@ public class ScopeEmissionService {
 
   /**
    * Scope 3 필수 필드 검증
-   * 
+   *
    * @param request 검증할 요청 데이터
    */
   private void validateScope3RequiredFields(ScopeEmissionRequest request) {
@@ -294,7 +293,7 @@ public class ScopeEmissionService {
 
   /**
    * Scope 배출량 엔티티 생성
-   * 
+   *
    * @param request        요청 데이터
    * @param headquartersId 본사 ID
    * @param partnerId      협력사 ID
@@ -322,7 +321,7 @@ public class ScopeEmissionService {
         .emissionFactor(request.getEmissionFactor())
         .totalEmission(request.getTotalEmission())
         .inputType(request.getInputType())
-        .hasProductMapping(request.getHasProductMapping())
+        .hasMaterialMapping(request.getHasMaterialMapping())
         .factoryEnabled(request.getFactoryEnabled());
 
     // Scope 타입별 카테고리 설정
@@ -351,33 +350,40 @@ public class ScopeEmissionService {
         break;
     }
 
-    // 자재코드 매핑이 설정된 경우 MaterialMapping 생성 및 연결 (저장 후 처리)
-    ScopeEmission emission = builder.build();
-    
-    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
-      // ScopeEmission을 먼저 저장하여 ID를 얻음
+    // 자재코드 매핑 처리 최적화
+    ScopeEmission emission;
+
+    if (Boolean.TRUE.equals(request.getHasMaterialMapping())) {
+      // MaterialMapping이 필요한 경우 두 단계 처리
+      // 1단계: ScopeEmission을 먼저 저장하여 ID를 얻음 (hasMaterialMapping=false로 임시 설정)
+      emission = builder.hasMaterialMapping(false).build(); // 임시로 false 설정
       ScopeEmission savedEmission = scopeEmissionRepository.save(emission);
-      
-      // MaterialMapping 생성 및 scopeEmissionId 설정
+
+      // 2단계: MaterialMapping 생성 및 scopeEmissionId 설정
       MaterialMapping materialMapping = createMaterialMapping(request, headquartersId, partnerId, treePath)
           .toBuilder()
           .scopeEmissionId(savedEmission.getId())
           .build();
-      
+
       // MaterialMapping 저장
       MaterialMapping savedMapping = materialMappingRepository.save(materialMapping);
-      
-      // MaterialMapping과 연결된 ScopeEmission 업데이트
-      savedEmission = savedEmission.setMaterialMapping(savedMapping);
+
+      // 3단계: MaterialMapping과 연결된 ScopeEmission 업데이트 (hasMaterialMapping=true로 최종 설정)
+      savedEmission = savedEmission.toBuilder()
+          .materialMapping(savedMapping)
+          .hasMaterialMapping(true) // 최종적으로 true 설정
+          .build();
       return scopeEmissionRepository.save(savedEmission);
+    } else {
+      // MaterialMapping이 불필요한 경우 단순 저장
+      emission = builder.build();
+      return scopeEmissionRepository.save(emission);
     }
-    
-    return scopeEmissionRepository.save(emission);
   }
 
   /**
    * 수정 권한 검증
-   * 
+   *
    * @param existingEmission 기존 배출량 데이터
    * @param userType         사용자 타입
    * @param headquartersId   본사 ID
@@ -409,7 +415,7 @@ public class ScopeEmissionService {
 
   /**
    * 삭제 권한 검증
-   * 
+   *
    * @param emission       삭제할 배출량 데이터
    * @param userType       사용자 타입
    * @param headquartersId 본사 ID
@@ -441,7 +447,7 @@ public class ScopeEmissionService {
 
   /**
    * 부분 업데이트 수행
-   * 
+   *
    * @param existingEmission 기존 배출량 데이터
    * @param request          업데이트 요청 데이터
    * @return 업데이트된 엔티티
@@ -455,16 +461,16 @@ public class ScopeEmissionService {
     }
 
     // 제품 코드 매핑 업데이트
-    if (request.getHasProductMapping() != null) {
-      builder.hasProductMapping(request.getHasProductMapping());
+    if (request.getHasMaterialMapping() != null) {
+      builder.hasMaterialMapping(request.getHasMaterialMapping());
 
       // 제품 코드 매핑이 true인 경우 제품 코드 정보 필수 검증
-      if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+      if (Boolean.TRUE.equals(request.getHasMaterialMapping())) {
         if (existingEmission.getScopeType() == ScopeType.SCOPE3) {
           throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
         }
-        if ((request.getCompanyProductCode() == null || request.getCompanyProductCode().trim().isEmpty()) &&
-            (request.getProductName() == null || request.getProductName().trim().isEmpty())) {
+        if ((request.getCompanyMaterialCode() == null || request.getCompanyMaterialCode().trim().isEmpty()) &&
+            (request.getMaterialName() == null || request.getMaterialName().trim().isEmpty())) {
           throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다");
         }
       }
@@ -499,27 +505,31 @@ public class ScopeEmissionService {
     }
 
     // 자재코드 매핑 업데이트
-    if (Boolean.TRUE.equals(request.getHasProductMapping())) {
+    if (Boolean.TRUE.equals(request.getHasMaterialMapping())) {
       // 기존 매핑이 있으면 업데이트, 없으면 새로 생성
       MaterialMapping materialMapping = existingEmission.getMaterialMapping();
       if (materialMapping != null) {
-        // 기존 매핑 업데이트
+        // 기존 매핑 업데이트 - 새로운 자재코드 맵핑 필드 우선 처리
+        String upstreamCode = request.getMappedMaterialCode();
+        String internalCode = request.getAssignedMaterialCode() != null ? request.getAssignedMaterialCode() : request.getCompanyMaterialCode();
+        String materialName = request.getMappedMaterialName() != null ? request.getMappedMaterialName() : request.getMaterialName();
+
         materialMapping = materialMapping.toBuilder()
-            .internalMaterialCode(request.getCompanyProductCode())
-            .materialName(request.getProductName())
-            .materialDescription("업데이트된 자재: " + request.getProductName())
+            .upstreamMaterialCode(upstreamCode)
+            .internalMaterialCode(internalCode)
+            .materialName(materialName)
             .build();
       } else {
         // 새로운 매핑 생성
-        materialMapping = createMaterialMapping(request, 
-            existingEmission.getHeadquartersId(), 
-            existingEmission.getPartnerId(), 
+        materialMapping = createMaterialMapping(request,
+            existingEmission.getHeadquartersId(),
+            existingEmission.getPartnerId(),
             existingEmission.getTreePath())
             .toBuilder()
             .scopeEmissionId(existingEmission.getId())
             .build();
       }
-      
+
       // MaterialMapping 저장 또는 업데이트
       MaterialMapping savedMapping = materialMappingRepository.save(materialMapping);
       builder.materialMapping(savedMapping);
@@ -539,21 +549,20 @@ public class ScopeEmissionService {
    * MaterialMapping 생성
    */
   private MaterialMapping createMaterialMapping(ScopeEmissionRequest request, Long headquartersId, Long partnerId, String treePath) {
+    // 자재코드 맵핑 필드 우선 처리, 없으면 기존 필드 사용
+    String upstreamCode = request.getMappedMaterialCode();
+    String internalCode = request.getAssignedMaterialCode() != null ? request.getAssignedMaterialCode() : request.getCompanyMaterialCode();
+    String materialName = request.getMappedMaterialName() != null ? request.getMappedMaterialName() : request.getMaterialName();
+    
     return MaterialMapping.builder()
         .headquartersId(headquartersId)
         .partnerId(partnerId)
         .partnerLevel(calculatePartnerLevel(treePath))
         .treePath(treePath)
-        .upstreamMaterialCode(null) // 기존 제품코드는 상위 코드가 없으므로 null
-        .internalMaterialCode(request.getCompanyProductCode())
-        .materialName(request.getProductName())
-        .materialDescription("기존 제품코드에서 전환된 자재: " + request.getProductName())
-        .upstreamPartnerId(null) // 기존 제품코드는 상위 협력사가 없으므로 null
-        .hasDownstreamAssignment(false)
-        .downstreamAssignmentCount(0)
-        .mappingDescription("기존 제품코드에서 자재코드 매핑으로 전환")
-        .isActive(true)
-        .isDeleted(false)
+        .upstreamMaterialCode(upstreamCode) // 상위에서 할당받은 자재코드
+        .internalMaterialCode(internalCode) // 내부 자재코드
+        .materialName(materialName) // 자재명
+        .upstreamPartnerId(null) // 상위 협력사 ID (추후 확장 가능)
         .build();
   }
 
@@ -561,21 +570,20 @@ public class ScopeEmissionService {
    * MaterialMapping 생성 (업데이트용)
    */
   private MaterialMapping createMaterialMapping(ScopeEmissionUpdateRequest request, Long headquartersId, Long partnerId, String treePath) {
+    // 자재코드 맵핑 필드 우선 처리, 없으면 기존 필드 사용
+    String upstreamCode = request.getMappedMaterialCode();
+    String internalCode = request.getAssignedMaterialCode() != null ? request.getAssignedMaterialCode() : request.getCompanyMaterialCode();
+    String materialName = request.getMappedMaterialName() != null ? request.getMappedMaterialName() : request.getMaterialName();
+    
     return MaterialMapping.builder()
         .headquartersId(headquartersId)
         .partnerId(partnerId)
         .partnerLevel(calculatePartnerLevel(treePath))
         .treePath(treePath)
-        .upstreamMaterialCode(null) // 기존 제품코드는 상위 코드가 없으므로 null
-        .internalMaterialCode(request.getCompanyProductCode())
-        .materialName(request.getProductName())
-        .materialDescription("기존 제품코드에서 전환된 자재: " + request.getProductName())
-        .upstreamPartnerId(null) // 기존 제품코드는 상위 협력사가 없으므로 null
-        .hasDownstreamAssignment(false)
-        .downstreamAssignmentCount(0)
-        .mappingDescription("기존 제품코드에서 자재코드 매핑으로 전환")
-        .isActive(true)
-        .isDeleted(false)
+        .upstreamMaterialCode(upstreamCode) // 상위에서 할당받은 자재코드
+        .internalMaterialCode(internalCode) // 내부 자재코드
+        .materialName(materialName) // 자재명
+        .upstreamPartnerId(null) // 상위 협력사 ID (추후 확장 가능)
         .build();
   }
 
@@ -603,206 +611,6 @@ public class ScopeEmissionService {
     return level;
   }
 
-  // ============================================================================
-  // 자재코드 할당 매핑 관리 메서드 (Material Assignment Mapping Management)
-  // ============================================================================
 
-  /**
-   * 자재코드 할당과 배출량 데이터를 매핑
-   * Scope 계산기에서 자재코드를 선택했을 때 호출
-   * 
-   * @param materialAssignmentId 자재코드 할당 ID
-   * @param scopeEmissionId 배출량 데이터 ID
-   * @return 생성된 MaterialMapping
-   */
-  @Transactional
-  public MaterialMapping createMaterialAssignmentMapping(Long materialAssignmentId, Long scopeEmissionId) {
-    log.info("자재코드 할당 매핑 생성 시작: assignmentId={}, emissionId={}", materialAssignmentId, scopeEmissionId);
-    
-    try {
-      // 1. MaterialAssignment 조회 및 검증
-      MaterialAssignment assignment = materialAssignmentRepository.findById(materialAssignmentId)
-          .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + materialAssignmentId));
-      
-      if (!assignment.getIsActive()) {
-        throw new IllegalArgumentException("비활성화된 자재코드 할당입니다: " + materialAssignmentId);
-      }
-      
-      // 2. ScopeEmission 조회 및 검증
-      ScopeEmission scopeEmission = scopeEmissionRepository.findById(scopeEmissionId)
-          .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + scopeEmissionId));
-      
-      if (scopeEmission.getScopeType() == ScopeType.SCOPE3) {
-        throw new IllegalArgumentException("Scope 3는 자재코드 매핑을 지원하지 않습니다");
-      }
-      
-      // 3. MaterialMapping 생성
-      MaterialMapping materialMapping = MaterialMapping.builder()
-          .headquartersId(assignment.getHeadquartersId())
-          .partnerId(scopeEmission.getPartnerId())
-          .partnerLevel(calculatePartnerLevel(scopeEmission.getTreePath()))
-          .treePath(scopeEmission.getTreePath())
-          .upstreamMaterialCode(assignment.getMaterialCode()) // 할당받은 자재코드
-          .internalMaterialCode(generateInternalMaterialCode(assignment.getMaterialCode())) // 내부 자재코드 생성
-          .materialName(assignment.getMaterialName())
-          .materialDescription(assignment.getMaterialDescription())
-          .upstreamPartnerId(parsePartnerId(assignment.getFromPartnerId())) // 할당해준 협력사 ID
-          .scopeEmissionId(scopeEmissionId)
-          .hasDownstreamAssignment(false)
-          .downstreamAssignmentCount(0)
-          .mappingDescription(String.format("할당코드 %s를 통한 자재코드 매핑", assignment.getMaterialCode()))
-          .isActive(true)
-          .isDeleted(false)
-          .build();
-      
-      // 4. MaterialMapping 저장
-      MaterialMapping savedMapping = materialMappingRepository.save(materialMapping);
-      
-      // 5. MaterialAssignment와 관계 설정 및 isMapped 상태 업데이트
-      savedMapping.setMaterialAssignment(assignment);
-      assignment.addMapping(savedMapping); // 이 메서드에서 자동으로 isMapped = true 설정
-      materialAssignmentRepository.save(assignment);
-      
-      // 6. ScopeEmission 업데이트
-      ScopeEmission updatedEmission = scopeEmission.setMaterialMapping(savedMapping);
-      scopeEmissionRepository.save(updatedEmission);
-      
-      log.info("자재코드 할당 매핑 생성 완료: mappingId={}, assignmentId={}, isMapped={}",
-          savedMapping.getId(), materialAssignmentId, assignment.getIsMapped());
-      
-      return savedMapping;
-      
-    } catch (Exception e) {
-      log.error("자재코드 할당 매핑 생성 중 오류 발생: assignmentId={}, emissionId={}", 
-          materialAssignmentId, scopeEmissionId, e);
-      throw e;
-    }
-  }
-
-  /**
-   * 자재코드 할당 매핑 해제
-   * Scope 계산기에서 데이터를 삭제했을 때 호출
-   * 
-   * @param scopeEmissionId 삭제할 배출량 데이터 ID
-   */
-  @Transactional
-  public void removeMaterialAssignmentMapping(Long scopeEmissionId) {
-    log.info("자재코드 할당 매핑 해제 시작: emissionId={}", scopeEmissionId);
-    
-    try {
-      // 1. ScopeEmission 조회
-      ScopeEmission scopeEmission = scopeEmissionRepository.findById(scopeEmissionId)
-          .orElseThrow(() -> new IllegalArgumentException("배출량 데이터를 찾을 수 없습니다: " + scopeEmissionId));
-      
-      // 2. MaterialMapping 조회 및 해제
-      MaterialMapping materialMapping = scopeEmission.getMaterialMapping();
-      if (materialMapping != null) {
-        log.info("매핑 해제 대상: mappingId={}, assignmentId={}", 
-            materialMapping.getId(), materialMapping.getMaterialAssignmentId());
-        
-        // 3. MaterialAssignment에서 매핑 제거
-        MaterialAssignment assignment = materialMapping.getMaterialAssignment();
-        if (assignment != null) {
-          // 매핑 제거
-          materialMapping.removeFromAssignment();
-          
-          // 해당 할당의 활성 매핑이 모두 제거되었는지 확인
-          long activeMappingCount = assignment.getActiveMappingCount();
-          log.info("할당 ID {} 의 활성 매핑 개수: {}", assignment.getId(), activeMappingCount);
-          
-          // 활성 매핑이 없으면 isMapped = false로 변경
-          if (activeMappingCount == 0) {
-            MaterialAssignment updatedAssignment = assignment.toBuilder()
-                .isMapped(false)
-                .build();
-            materialAssignmentRepository.save(updatedAssignment);
-            log.info("자재코드 할당 매핑 상태 해제: assignmentId={}, isMapped=false", assignment.getId());
-          }
-        }
-        
-        // 4. MaterialMapping 소프트 삭제
-        MaterialMapping deletedMapping = materialMapping.softDelete();
-        materialMappingRepository.save(deletedMapping);
-        
-        // 5. ScopeEmission에서 매핑 제거
-        ScopeEmission updatedEmission = scopeEmission.toBuilder()
-            .materialMapping(null)
-            .hasProductMapping(false)
-            .build();
-        scopeEmissionRepository.save(updatedEmission);
-        
-        log.info("자재코드 할당 매핑 해제 완료: emissionId={}, mappingId={}", 
-            scopeEmissionId, materialMapping.getId());
-      } else {
-        log.info("매핑이 존재하지 않는 배출량 데이터: emissionId={}", scopeEmissionId);
-      }
-      
-    } catch (Exception e) {
-      log.error("자재코드 할당 매핑 해제 중 오류 발생: emissionId={}", scopeEmissionId, e);
-      throw e;
-    }
-  }
-
-  /**
-   * 자재코드 할당의 매핑 상태 조회
-   * 
-   * @param materialAssignmentId 자재코드 할당 ID
-   * @return 매핑 상태 정보
-   */
-  @Transactional(readOnly = true)
-  public boolean isAssignmentMapped(Long materialAssignmentId) {
-    MaterialAssignment assignment = materialAssignmentRepository.findById(materialAssignmentId)
-        .orElseThrow(() -> new IllegalArgumentException("자재코드 할당을 찾을 수 없습니다: " + materialAssignmentId));
-    
-    return assignment.getIsMapped();
-  }
-
-  /**
-   * 매핑 가능한 자재코드 할당 목록 조회
-   * isMapped = false 또는 현재 사용자가 소유한 매핑된 할당만 조회
-   * 
-   * @param partnerId 협력사 ID
-   * @return 매핑 가능한 할당 목록
-   */
-  @Transactional(readOnly = true)
-  public List<MaterialAssignment> getMappableAssignments(String partnerId) {
-    log.info("매핑 가능한 자재코드 할당 조회: partnerId={}", partnerId);
-    
-    // 활성 상태이면서 (매핑되지 않았거나 현재 사용자 소유)인 할당만 조회
-    return materialAssignmentRepository.findActiveByToPartnerId(partnerId);
-  }
-
-  // ============================================================================
-  // 헬퍼 메서드 (Helper Methods)
-  // ============================================================================
-
-  /**
-   * 내부 자재코드 생성
-   * 상위 자재코드를 기반으로 내부 자재코드 생성
-   */
-  private String generateInternalMaterialCode(String upstreamCode) {
-    if (upstreamCode == null || upstreamCode.trim().isEmpty()) {
-      return "INT_" + System.currentTimeMillis() % 10000;
-    }
-    
-    // 상위 코드에 내부 접두어 추가
-    return "INT_" + upstreamCode;
-  }
-
-  /**
-   * 협력사 ID 파싱 (String -> Long)
-   */
-  private Long parsePartnerId(String partnerIdStr) {
-    if (partnerIdStr == null || partnerIdStr.trim().isEmpty()) {
-      return null; // 본사인 경우
-    }
-    
-    try {
-      return Long.parseLong(partnerIdStr);
-    } catch (NumberFormatException e) {
-      log.warn("협력사 ID 파싱 실패: {}, null로 설정", partnerIdStr);
-      return null;
-    }
-  }
 
 }

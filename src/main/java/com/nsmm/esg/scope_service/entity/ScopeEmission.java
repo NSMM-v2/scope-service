@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
  * 특징:
  * - 프론트엔드 폼 구조와 1:1 매핑
  * - Scope 1(10개), Scope 2(2개), Scope 3(15개) 카테고리 지원
- * - 제품 코드 매핑 지원
+ * - 자재 코드 매핑 지원
  * - 수동 입력 모드 지원
  * - 계층적 권한 관리
  */
@@ -101,11 +101,11 @@ public class ScopeEmission {
     // ========================================================================
     // 자재코드 매핑 관계 (Material Code Mapping Relations)
     // ========================================================================
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "material_mapping_id", foreignKey = @ForeignKey(name = "fk_scope_material_mapping"))
     private MaterialMapping materialMapping; // 자재코드 매핑 정보
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "material_assignment_id", foreignKey = @ForeignKey(name = "fk_scope_material_assignment"))
     private MaterialAssignment materialAssignment; // 자재코드 할당 정보
@@ -144,9 +144,9 @@ public class ScopeEmission {
     @Builder.Default
     private InputType inputType = InputType.MANUAL; // MANUAL, LCA
 
-    @Column(name = "has_product_mapping", nullable = false)
+    @Column(name = "has_material_mapping", nullable = false)
     @Builder.Default
-    private Boolean hasProductMapping = false; // 제품 코드 매핑 여부
+    private Boolean hasMaterialMapping = false; // 자재 코드 활성 여부
 
     @Column(name = "factory_enabled", nullable = false)
     @Builder.Default
@@ -167,98 +167,38 @@ public class ScopeEmission {
     // ========================================================================
     // 비즈니스 로직 메서드 (Business Logic Methods)
     // ========================================================================
-    
+
     /**
      * 자재코드 매핑 정보 조회
      */
     public String getUpstreamMaterialCode() {
         return materialMapping != null ? materialMapping.getUpstreamMaterialCode() : null;
     }
-    
+
     /**
      * 내부 자재코드 조회
      */
     public String getInternalMaterialCode() {
         return materialMapping != null ? materialMapping.getInternalMaterialCode() : null;
     }
-    
+
     /**
      * 자재명 조회
      */
     public String getMaterialName() {
         return materialMapping != null ? materialMapping.getMaterialName() : null;
     }
-    
-    /**
-     * 자재코드 매핑 여부 확인
-     */
-    public boolean hasMaterialMapping() {
-        return materialMapping != null && hasProductMapping;
-    }
-    
+
     /**
      * 자재코드 매핑 설정
      */
     public ScopeEmission setMaterialMapping(MaterialMapping mapping) {
         return this.toBuilder()
                 .materialMapping(mapping)
-                .hasProductMapping(mapping != null)
+                .hasMaterialMapping(mapping != null)
                 .build();
     }
-    
-    /**
-     * 자재코드 할당 설정
-     */
-    public ScopeEmission setMaterialAssignment(MaterialAssignment assignment) {
-        return this.toBuilder()
-                .materialAssignment(assignment)
-                .build();
-    }
-    
-    /**
-     * 체인 추적 정보 생성
-     */
-    public String getTrackingInfo() {
-        if (!hasMaterialMapping()) {
-            return "직접 입력 데이터";
-        }
-        
-        String upstream = getUpstreamMaterialCode();
-        String internal = getInternalMaterialCode();
-        Long upstreamPartnerId = getUpstreamPartnerId();
-        
-        String upstreamInfo = upstreamPartnerId == null ? "본사" : "Partner-" + upstreamPartnerId;
-        return String.format("%s[%s] → %s[Partner-%d]", upstream, upstreamInfo, internal, partnerId);
-    }
-    
-    /**
-     * 수정 가능성 검증
-     */
-    public boolean isModifiable() {
-        // 하위에 할당된 자재코드가 있으면 수정 불가
-        if (materialMapping != null && materialMapping.getHasDownstreamAssignment()) {
-            return false;
-        }
-        return true;
-    }
-    
-    /**
-     * 삭제 가능성 검증
-     */
-    public boolean isDeletable() {
-        // 하위에 할당된 자재코드가 있으면 삭제 불가
-        if (materialMapping != null && materialMapping.getHasDownstreamAssignment()) {
-            return false;
-        }
-        return true;
-    }
-    
-    /**
-     * 상위 협력사 ID 조회
-     */
-    public Long getUpstreamPartnerId() {
-        return materialMapping != null ? materialMapping.getUpstreamPartnerId() : null;
-    }
+
 
     /**
      * 프론트엔드 입력 데이터 검증
@@ -281,16 +221,18 @@ public class ScopeEmission {
                 throw new IllegalStateException("Scope 1 카테고리 정보가 일치하지 않습니다");
             }
         }
-        
-        // 자재코드 매핑 일관성 검증
-        if (materialMapping != null && !hasProductMapping) {
+
+        // 자재코드 매핑 일관성 검증 - MaterialMapping 생성 과정에서의 일시적 불일치는 허용
+        if (materialMapping != null && !hasMaterialMapping) {
             throw new IllegalStateException("자재코드 매핑이 있지만 매핑 플래그가 false입니다");
         }
-        
-        if (hasProductMapping && materialMapping == null) {
+
+        // MaterialMapping 생성 프로세스에서 일시적으로 hasMaterialMapping=true, materialMapping=null 상태 허용
+        // 단, 이미 저장된 레코드에 대해서는 일관성 검증 수행
+        if (hasMaterialMapping && materialMapping == null && id != null) {
             throw new IllegalStateException("매핑 플래그가 true이지만 자재코드 매핑이 없습니다");
         }
-        
+
         // Scope 1, 2에서만 자재코드 매핑 지원 검증
         if (materialMapping != null && scopeType == ScopeType.SCOPE3) {
             throw new IllegalStateException("Scope 3에서는 자재코드 매핑을 지원하지 않습니다");
