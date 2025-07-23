@@ -118,6 +118,15 @@ public class MaterialAssignment {
     }
 
     /**
+     * 매핑 해제 상태로 변경
+     */
+    public MaterialAssignment markAsUnmapped() {
+        return this.toBuilder()
+                .isMapped(false)
+                .build();
+    }
+
+    /**
      * 수정 가능 여부 확인
      */
     public boolean isModifiable() {
@@ -149,16 +158,19 @@ public class MaterialAssignment {
 
     /**
      * 매핑 추가
+     * 매핑이 추가되면 자동으로 매핑 상태로 변경됩니다.
+     * 
+     * @param mapping 추가할 매핑
+     * @return 매핑이 추가되고 상태가 업데이트된 새로운 MaterialAssignment
      */
-    public void addMapping(MaterialMapping mapping) {
-        if (materialMappings == null) {
-            materialMappings = new ArrayList<>();
-        }
-        materialMappings.add(mapping);
-        // 매핑이 생성되면 자동으로 매핑됨 상태로 변경
-        if (!this.isMapped) {
-            this.isMapped = true;
-        }
+    public MaterialAssignment addMapping(MaterialMapping mapping) {
+        List<MaterialMapping> updatedMappings = new ArrayList<>(materialMappings != null ? materialMappings : new ArrayList<>());
+        updatedMappings.add(mapping);
+        
+        return this.toBuilder()
+                .materialMappings(updatedMappings)
+                .isMapped(true) // 매핑이 생성되면 자동으로 매핑됨 상태로 변경
+                .build();
     }
 
 

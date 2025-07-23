@@ -112,17 +112,6 @@ public class MaterialMapping {
     // ========================================================================
 
     /**
-     * 할당 정보에서 매핑 제거
-     */
-    public void removeFromAssignment() {
-        if (materialAssignment != null) {
-            materialAssignment.getMaterialMappings().remove(this);
-            this.materialAssignment = null;
-        }
-    }
-
-    
-    /**
      * 총 배출량 조회
      */
     public BigDecimal getTotalEmission() {
@@ -133,22 +122,5 @@ public class MaterialMapping {
                 .reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.ZERO;
     }
 
-    /**
-     * 할당 정보 연결
-     */
-    public void setMaterialAssignment(MaterialAssignment assignment) {
-        // 기존 관계 제거
-        if (this.materialAssignment != null) {
-            this.materialAssignment.getMaterialMappings().remove(this);
-        }
-        
-        this.materialAssignment = assignment;
-        this.materialAssignmentId = assignment != null ? assignment.getId() : null;
-        
-        // 새로운 관계 추가
-        if (assignment != null && !assignment.getMaterialMappings().contains(this)) {
-            assignment.addMapping(this);
-        }
 
-    }
 }

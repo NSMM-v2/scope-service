@@ -189,15 +189,6 @@ public class ScopeEmission {
         return materialMapping != null ? materialMapping.getMaterialName() : null;
     }
 
-    /**
-     * 자재코드 매핑 설정
-     */
-    public ScopeEmission setMaterialMapping(MaterialMapping mapping) {
-        return this.toBuilder()
-                .materialMapping(mapping)
-                .hasMaterialMapping(mapping != null)
-                .build();
-    }
 
 
     /**

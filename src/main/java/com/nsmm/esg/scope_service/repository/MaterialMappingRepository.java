@@ -1,6 +1,7 @@
 package com.nsmm.esg.scope_service.repository;
 
 import com.nsmm.esg.scope_service.entity.MaterialMapping;
+import com.nsmm.esg.scope_service.entity.MaterialAssignment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,5 +22,13 @@ import java.util.Optional;
 @Repository
 public interface MaterialMappingRepository extends JpaRepository<MaterialMapping, Long> {
 
+  /**
+   * 특정 MaterialAssignment와 연결된 MaterialMapping 개수 조회
+   *
+   * @param materialAssignment MaterialAssignment 엔티티
+   * @return 연결된 매핑 개수
+   */
+  @Query("SELECT COUNT(mm) FROM MaterialMapping mm WHERE mm.materialAssignment = :materialAssignment")
+  long countByMaterialAssignment(@Param("materialAssignment") MaterialAssignment materialAssignment);
 
 }

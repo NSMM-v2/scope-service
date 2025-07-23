@@ -200,7 +200,10 @@ public class MaterialAssignmentService {
         
         // 매핑 생성 여부 확인 (매핑된 할당은 수정 불가)
         if (assignment.getIsMapped()) {
-            throw new IllegalArgumentException("이미 매핑이 생성된 할당은 수정할 수 없습니다");
+            throw new IllegalArgumentException(
+                String.format("자재코드 '%s'는 Scope 계산기에서 사용 중이어서 수정할 수 없습니다. " +
+                            "계산기에서 해당 자료를 삭제한 후 다시 시도해주세요.", 
+                            assignment.getMaterialCode()));
         }
         
         // 자재코드가 변경되는 경우 중복 검증
@@ -244,7 +247,10 @@ public class MaterialAssignmentService {
         
         // 매핑 생성 여부 확인 (매핑된 할당은 삭제 불가)
         if (assignment.getIsMapped()) {
-            throw new IllegalArgumentException("이미 매핑이 생성된 할당은 삭제할 수 없습니다");
+            throw new IllegalArgumentException(
+                String.format("자재코드 '%s'는 Scope 계산기에서 사용 중이어서 삭제할 수 없습니다. " +
+                            "계산기에서 해당 자료를 삭제한 후 다시 시도해주세요.", 
+                            assignment.getMaterialCode()));
         }
         
         materialAssignmentRepository.delete(assignment);
@@ -269,7 +275,9 @@ public class MaterialAssignmentService {
         
         result.put("canDelete", !isMapped);
         if (isMapped) {
-            result.put("reason", "이 자재코드는 Scope 계산기에서 사용 중이어서 삭제할 수 없습니다.");
+            result.put("reason", String.format("자재코드 '%s'는 Scope 계산기에서 사용 중이어서 삭제할 수 없습니다. " +
+                                             "계산기에서 해당 자료를 삭제한 후 다시 시도해주세요.", 
+                                             assignment.getMaterialCode()));
             result.put("mappedCodes", List.of(assignment.getMaterialCode()));
         } else {
             result.put("reason", "삭제 가능한 자재코드입니다.");
