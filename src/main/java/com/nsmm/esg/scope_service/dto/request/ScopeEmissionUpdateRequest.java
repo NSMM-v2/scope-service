@@ -42,32 +42,29 @@ public class ScopeEmissionUpdateRequest {
   private Boolean factoryEnabled;
 
   // ========================================================================
-  // 자재 코드 매핑 정보 (Material Code Mapping)
-  // ========================================================================
-
-  @Schema(description = "회사별 자재 코드", example = "L01")
-  @Size(max = 50, message = "자재 코드는 50자 이하여야 합니다")
-  private String companyMaterialCode; // 각 회사별 자재 코드
-
-  @Schema(description = "자재명", example = "휠")
-  @Size(max = 100, message = "자재명은 100자 이하여야 합니다")
-  private String materialName; // 자재명
-
-  // ========================================================================
   // 자재코드 매핑 정보 (Material Code Mapping)
   // ========================================================================
 
+  @Schema(description = "자재 할당 정보 ID", example = "1")
+  private Long materialAssignmentId; // 자재 할당 정보 연결용 ID
+
+  @Schema(description = "자재 매핑 정보 ID", example = "1")
+  private Long materialMappingId; // 자재 매핑 정보 연결용 ID
+
   @Schema(description = "상위에서 할당받은 자재코드", example = "A100")
-  @Size(max = 50, message = "매핑된 자재코드는 50자 이하여야 합니다")
-  private String mappedMaterialCode; // 상위에서 할당받은 자재코드 (upstream material code)
+  @Size(max = 50, message = "상위 자재코드는 50자 이하여야 합니다")
+  private String upstreamMaterialCode; // 상위에서 할당받은 자재코드 (A100, FE100...) - 최상위인 경우 null
 
   @Schema(description = "내부 자재코드", example = "B100")
-  @Size(max = 50, message = "할당 자재코드는 50자 이하여야 합니다")
-  private String assignedMaterialCode; // 내부 자재코드 (internal material code)
+  @Size(max = 50, message = "내부 자재코드는 50자 이하여야 합니다")
+  private String internalMaterialCode; // 내부 자재코드 (B100, FE200...)
 
-  @Schema(description = "매핑된 자재명", example = "철강 부품")
-  @Size(max = 200, message = "매핑된 자재명은 200자 이하여야 합니다")
-  private String mappedMaterialName; // 자재명
+  @Schema(description = "자재명", example = "철강 부품")
+  @Size(max = 200, message = "자재명은 200자 이하여야 합니다")
+  private String materialName; // 자재명
+
+  @Schema(description = "상위 협력사 ID", example = "1")
+  private Long upstreamPartnerId; // 상위 협력사 ID (null이면 본사)
 
   // ========================================================================
   // 프론트엔드 입력 데이터 (Frontend Input Data)
@@ -120,5 +117,52 @@ public class ScopeEmissionUpdateRequest {
   @Max(value = 12, message = "보고 월은 12 이하이어야 합니다")
   private Integer reportingMonth;
 
+  // ========================================================================
+  // 호환성 메서드 (Compatibility Methods)
+  // ========================================================================
+
+  /**
+   * 기존 mappedMaterialCode 호환성
+   */
+  public String getMappedMaterialCode() {
+    return this.upstreamMaterialCode;
+  }
+
+  public void setMappedMaterialCode(String mappedMaterialCode) {
+    this.upstreamMaterialCode = mappedMaterialCode;
+  }
+
+  /**
+   * 기존 assignedMaterialCode 호환성
+   */
+  public String getAssignedMaterialCode() {
+    return this.internalMaterialCode;
+  }
+
+  public void setAssignedMaterialCode(String assignedMaterialCode) {
+    this.internalMaterialCode = assignedMaterialCode;
+  }
+
+  /**
+   * 기존 mappedMaterialName 호환성
+   */
+  public String getMappedMaterialName() {
+    return this.materialName;
+  }
+
+  public void setMappedMaterialName(String mappedMaterialName) {
+    this.materialName = mappedMaterialName;
+  }
+
+  /**
+   * 기존 companyMaterialCode 호환성 (internalMaterialCode와 동일)
+   */
+  public String getCompanyMaterialCode() {
+    return this.internalMaterialCode;
+  }
+
+  public void setCompanyMaterialCode(String companyMaterialCode) {
+    this.internalMaterialCode = companyMaterialCode;
+  }
 
 }

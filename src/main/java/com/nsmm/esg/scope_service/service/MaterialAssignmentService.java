@@ -429,7 +429,6 @@ public class MaterialAssignmentService {
         status.put("isMapped", assignment.getIsMapped());
         status.put("isActive", assignment.getIsActive());
         status.put("mappingCount", assignment.getMappingCount());
-        status.put("activeMappingCount", assignment.getActiveMappingCount());
         status.put("isModifiable", assignment.isModifiable());
         status.put("isDeletable", assignment.isDeletable());
         
@@ -500,7 +499,6 @@ public class MaterialAssignmentService {
                 
                 // 비즈니스 메서드 결과 (Business Method Results)
                 .mappingCount(assignment.getMappingCount()) // getMappingCount() 결과
-                .activeMappingCount(assignment.getActiveMappingCount()) // getActiveMappingCount() 결과
                 .assignmentInfo(assignment.getAssignmentInfo()) // getAssignmentInfo() 결과
                 .isModifiable(assignment.isModifiable()) // isModifiable() 결과
                 .isDeletable(assignment.isDeletable()) // isDeletable() 결과

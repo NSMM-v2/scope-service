@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 // ============================================================================
@@ -51,6 +52,47 @@ public class ScopeEmissionService {
   // ============================================================================
   // 생성 메서드
   // ============================================================================
+
+  /**
+   * 협력사에게 할당된 자재코드 조회
+   */
+  private List<MaterialAssignment> getAssignedMaterialCodes(String partnerId) {
+    log.debug("협력사 할당 자재코드 조회: partnerId={}", partnerId);
+    List<MaterialAssignment> assignments = materialAssignmentRepository.findActiveByToPartnerId(partnerId);
+    log.info("조회된 할당 자재코드 개수: {}", assignments.size());
+    return assignments;
+  }
+
+  /**
+   * 특정 자재코드로 할당 정보 조회
+   */
+  private Optional<MaterialAssignment> findMaterialAssignmentByCode(String materialCode, String partnerId) {
+    log.debug("자재코드별 할당 정보 조회: materialCode={}, partnerId={}", materialCode, partnerId);
+    return materialAssignmentRepository.findByMaterialCodeAndToPartnerId(materialCode, partnerId);
+  }
+
+  /**
+   * MaterialAssignment 유효성 검증
+   */
+  private void validateMaterialAssignment(MaterialAssignment assignment, Long partnerId) {
+    // 1. 활성 상태 확인
+    if (!Boolean.TRUE.equals(assignment.getIsActive())) {
+      throw new IllegalArgumentException(
+          String.format("자재코드 '%s'가 비활성 상태입니다.", assignment.getMaterialCode())
+      );
+    }
+    
+    // 2. 할당받는 협력사 ID 일치 확인
+    if (!String.valueOf(partnerId).equals(assignment.getToPartnerId())) {
+      throw new IllegalArgumentException(
+          String.format("자재코드 '%s'는 다른 협력사에게 할당된 코드입니다. 요청 협력사: %s, 할당 협력사: %s", 
+                       assignment.getMaterialCode(), partnerId, assignment.getToPartnerId())
+      );
+    }
+    
+    log.debug("MaterialAssignment 유효성 검증 성공: materialCode={}, toPartnerId={}, isActive={}", 
+             assignment.getMaterialCode(), assignment.getToPartnerId(), assignment.getIsActive());
+  }
 
   /**
    * 통합 Scope 배출량 데이터 생성
@@ -255,8 +297,11 @@ public class ScopeEmissionService {
       if (request.getScopeType() == ScopeType.SCOPE3) {
         throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
       }
-      if (request.getCompanyMaterialCode() == null || request.getCompanyMaterialCode().trim().isEmpty()) {
-        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드는 필수입니다");
+      if (request.getUpstreamMaterialCode() == null || request.getUpstreamMaterialCode().trim().isEmpty()) {
+        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 상위 할당 자재코드는 필수입니다");
+      }
+      if (request.getInternalMaterialCode() == null || request.getInternalMaterialCode().trim().isEmpty()) {
+        throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 내부 자재코드는 필수입니다");
       }
       if (request.getMaterialName() == null || request.getMaterialName().trim().isEmpty()) {
         throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품명은 필수입니다");
@@ -368,9 +413,13 @@ public class ScopeEmissionService {
       // MaterialMapping 저장
       MaterialMapping savedMapping = materialMappingRepository.save(materialMapping);
 
-      // 3단계: MaterialMapping과 연결된 ScopeEmission 업데이트 (hasMaterialMapping=true로 최종 설정)
+      // MaterialAssignment 정보 조회 (MaterialMapping과 연결된 것과 동일)
+      MaterialAssignment materialAssignment = savedMapping.getMaterialAssignment();
+      
+      // 3단계: MaterialMapping과 MaterialAssignment가 연결된 ScopeEmission 업데이트 (hasMaterialMapping=true로 최종 설정)
       savedEmission = savedEmission.toBuilder()
           .materialMapping(savedMapping)
+          .materialAssignment(materialAssignment) // MaterialAssignment 직접 연결
           .hasMaterialMapping(true) // 최종적으로 true 설정
           .build();
       return scopeEmissionRepository.save(savedEmission);
@@ -469,9 +518,10 @@ public class ScopeEmissionService {
         if (existingEmission.getScopeType() == ScopeType.SCOPE3) {
           throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
         }
-        if ((request.getCompanyMaterialCode() == null || request.getCompanyMaterialCode().trim().isEmpty()) &&
+        if ((request.getUpstreamMaterialCode() == null || request.getUpstreamMaterialCode().trim().isEmpty()) ||
+            (request.getInternalMaterialCode() == null || request.getInternalMaterialCode().trim().isEmpty()) ||
             (request.getMaterialName() == null || request.getMaterialName().trim().isEmpty())) {
-          throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품 코드와 제품명은 필수입니다");
+          throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 상위 할당 자재코드, 내부 자재코드, 제품명은 필수입니다");
         }
       }
     }
@@ -509,18 +559,21 @@ public class ScopeEmissionService {
       // 기존 매핑이 있으면 업데이트, 없으면 새로 생성
       MaterialMapping materialMapping = existingEmission.getMaterialMapping();
       if (materialMapping != null) {
-        // 기존 매핑 업데이트 - 새로운 자재코드 맵핑 필드 우선 처리
-        String upstreamCode = request.getMappedMaterialCode();
-        String internalCode = request.getAssignedMaterialCode() != null ? request.getAssignedMaterialCode() : request.getCompanyMaterialCode();
-        String materialName = request.getMappedMaterialName() != null ? request.getMappedMaterialName() : request.getMaterialName();
-
-        materialMapping = materialMapping.toBuilder()
-            .upstreamMaterialCode(upstreamCode)
-            .internalMaterialCode(internalCode)
-            .materialName(materialName)
+        // 기존 매핑을 삭제하고 새로 생성 (MaterialAssignment 기반)
+        log.info("기존 MaterialMapping 삭제 후 새로 생성: emissionId={}, mappingId={}", 
+                 existingEmission.getId(), materialMapping.getId());
+        materialMappingRepository.delete(materialMapping);
+        
+        // 새로운 매핑 생성 (MaterialAssignment 기반)
+        materialMapping = createMaterialMapping(request,
+            existingEmission.getHeadquartersId(),
+            existingEmission.getPartnerId(),
+            existingEmission.getTreePath())
+            .toBuilder()
+            .scopeEmissionId(existingEmission.getId())
             .build();
       } else {
-        // 새로운 매핑 생성
+        // 새로운 매핑 생성 (MaterialAssignment 기반)
         materialMapping = createMaterialMapping(request,
             existingEmission.getHeadquartersId(),
             existingEmission.getPartnerId(),
@@ -532,10 +585,20 @@ public class ScopeEmissionService {
 
       // MaterialMapping 저장 또는 업데이트
       MaterialMapping savedMapping = materialMappingRepository.save(materialMapping);
-      builder.materialMapping(savedMapping);
+      // MaterialAssignment 정보도 함께 설정
+      MaterialAssignment materialAssignment = savedMapping.getMaterialAssignment();
+      builder.materialMapping(savedMapping)
+             .materialAssignment(materialAssignment); // MaterialAssignment 직접 연결
     } else {
-      // 매핑이 false인 경우 매핑 제거
-      builder.materialMapping(null);
+      // 매핑이 false인 경우 기존 매핑 제거
+      if (existingEmission.getMaterialMapping() != null) {
+        log.info("기존 MaterialMapping 제거: emissionId={}, mappingId={}", 
+                 existingEmission.getId(), existingEmission.getMaterialMapping().getId());
+        // MaterialMapping 삭제
+        materialMappingRepository.delete(existingEmission.getMaterialMapping());
+      }
+      builder.materialMapping(null)
+             .materialAssignment(null); // MaterialAssignment도 함께 제거
     }
 
     return builder.build();
@@ -546,44 +609,100 @@ public class ScopeEmissionService {
   // ============================================================================
 
   /**
-   * MaterialMapping 생성
+   * MaterialMapping 생성 - MaterialAssignment 기반
    */
   private MaterialMapping createMaterialMapping(ScopeEmissionRequest request, Long headquartersId, Long partnerId, String treePath) {
-    // 자재코드 맵핑 필드 우선 처리, 없으면 기존 필드 사용
-    String upstreamCode = request.getMappedMaterialCode();
-    String internalCode = request.getAssignedMaterialCode() != null ? request.getAssignedMaterialCode() : request.getCompanyMaterialCode();
-    String materialName = request.getMappedMaterialName() != null ? request.getMappedMaterialName() : request.getMaterialName();
+    log.debug("MaterialMapping 생성 시작: partnerId={}", partnerId);
+    
+    // 1. 프론트엔드에서 받은 상위 할당 자재코드로 MaterialAssignment 조회
+    String upstreamMaterialCode = request.getUpstreamMaterialCode();
+    if (upstreamMaterialCode == null || upstreamMaterialCode.trim().isEmpty()) {
+      throw new IllegalArgumentException("자재코드 매핑 활성화 시 상위 할당 자재코드는 필수입니다");
+    }
+    
+    // 2. MaterialAssignment에서 할당된 자재코드 정보 조회 및 검증
+    Optional<MaterialAssignment> assignmentOpt = findMaterialAssignmentByCode(upstreamMaterialCode, String.valueOf(partnerId));
+    if (assignmentOpt.isEmpty()) {
+      log.error("자재코드 할당 정보를 찾을 수 없음: materialCode={}, partnerId={}", upstreamMaterialCode, partnerId);
+      throw new IllegalArgumentException(
+          String.format("자재코드 '%s'에 대한 할당 정보가 존재하지 않습니다. 협력사 ID: %s", upstreamMaterialCode, partnerId)
+      );
+    }
+    
+    // 3. MaterialAssignment 유효성 검증
+    MaterialAssignment assignment = assignmentOpt.get();
+    validateMaterialAssignment(assignment, partnerId);
+    log.info("MaterialAssignment 유효성 검증 완료: materialCode={}, materialName={}", assignment.getMaterialCode(), assignment.getMaterialName());
+    
+    // 4. upstreamPartnerId 안전한 변환
+    Long upstreamPartnerId = null;
+    if (assignment.getFromPartnerId() != null && !assignment.getFromPartnerId().trim().isEmpty()) {
+      try {
+        upstreamPartnerId = Long.valueOf(assignment.getFromPartnerId());
+      } catch (NumberFormatException e) {
+        log.warn("fromPartnerId 변환 실패, null로 설정: fromPartnerId={}", assignment.getFromPartnerId());
+      }
+    }
     
     return MaterialMapping.builder()
         .headquartersId(headquartersId)
         .partnerId(partnerId)
         .partnerLevel(calculatePartnerLevel(treePath))
         .treePath(treePath)
-        .upstreamMaterialCode(upstreamCode) // 상위에서 할당받은 자재코드
-        .internalMaterialCode(internalCode) // 내부 자재코드
-        .materialName(materialName) // 자재명
-        .upstreamPartnerId(null) // 상위 협력사 ID (추후 확장 가능)
+        .materialAssignment(assignment) // MaterialAssignment 연결
+        .upstreamMaterialCode(assignment.getMaterialCode()) // 상위에서 할당받은 자재코드
+        .internalMaterialCode(request.getInternalMaterialCode()) // 내부에서 사용하는 자재코드
+        .materialName(assignment.getMaterialName()) // MaterialAssignment의 자재명 사용
+        .upstreamPartnerId(upstreamPartnerId) // 안전한 변환된 값
         .build();
   }
 
   /**
-   * MaterialMapping 생성 (업데이트용)
+   * MaterialMapping 생성 (업데이트용) - MaterialAssignment 기반
    */
   private MaterialMapping createMaterialMapping(ScopeEmissionUpdateRequest request, Long headquartersId, Long partnerId, String treePath) {
-    // 자재코드 맵핑 필드 우선 처리, 없으면 기존 필드 사용
-    String upstreamCode = request.getMappedMaterialCode();
-    String internalCode = request.getAssignedMaterialCode() != null ? request.getAssignedMaterialCode() : request.getCompanyMaterialCode();
-    String materialName = request.getMappedMaterialName() != null ? request.getMappedMaterialName() : request.getMaterialName();
+    log.debug("MaterialMapping 업데이트 생성 시작: partnerId={}", partnerId);
+    
+    // 1. 프론트엔드에서 받은 상위 할당 자재코드로 MaterialAssignment 조회
+    String upstreamMaterialCode = request.getUpstreamMaterialCode();
+    if (upstreamMaterialCode == null || upstreamMaterialCode.trim().isEmpty()) {
+      throw new IllegalArgumentException("자재코드 매핑 활성화 시 상위 할당 자재코드는 필수입니다");
+    }
+    
+    // 2. MaterialAssignment에서 할당된 자재코드 정보 조회 및 검증
+    Optional<MaterialAssignment> assignmentOpt = findMaterialAssignmentByCode(upstreamMaterialCode, String.valueOf(partnerId));
+    if (assignmentOpt.isEmpty()) {
+      log.error("자재코드 할당 정보를 찾을 수 없음: materialCode={}, partnerId={}", upstreamMaterialCode, partnerId);
+      throw new IllegalArgumentException(
+          String.format("자재코드 '%s'에 대한 할당 정보가 존재하지 않습니다. 협력사 ID: %s", upstreamMaterialCode, partnerId)
+      );
+    }
+    
+    // 3. MaterialAssignment 유효성 검증
+    MaterialAssignment assignment = assignmentOpt.get();
+    validateMaterialAssignment(assignment, partnerId);
+    log.info("MaterialAssignment 유효성 검증 완료: materialCode={}, materialName={}", assignment.getMaterialCode(), assignment.getMaterialName());
+    
+    // 4. upstreamPartnerId 안전한 변환
+    Long upstreamPartnerId = null;
+    if (assignment.getFromPartnerId() != null && !assignment.getFromPartnerId().trim().isEmpty()) {
+      try {
+        upstreamPartnerId = Long.valueOf(assignment.getFromPartnerId());
+      } catch (NumberFormatException e) {
+        log.warn("fromPartnerId 변환 실패, null로 설정: fromPartnerId={}", assignment.getFromPartnerId());
+      }
+    }
     
     return MaterialMapping.builder()
         .headquartersId(headquartersId)
         .partnerId(partnerId)
         .partnerLevel(calculatePartnerLevel(treePath))
         .treePath(treePath)
-        .upstreamMaterialCode(upstreamCode) // 상위에서 할당받은 자재코드
-        .internalMaterialCode(internalCode) // 내부 자재코드
-        .materialName(materialName) // 자재명
-        .upstreamPartnerId(null) // 상위 협력사 ID (추후 확장 가능)
+        .materialAssignment(assignment) // MaterialAssignment 연결
+        .upstreamMaterialCode(assignment.getMaterialCode()) // 상위에서 할당받은 자재코드
+        .internalMaterialCode(request.getInternalMaterialCode()) // 내부에서 사용하는 자재코드
+        .materialName(assignment.getMaterialName()) // MaterialAssignment의 자재명 사용
+        .upstreamPartnerId(upstreamPartnerId) // 안전한 변환된 값
         .build();
   }
 

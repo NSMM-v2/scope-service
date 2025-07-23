@@ -60,28 +60,26 @@ public class ScopeEmissionResponse {
   @Schema(description = "Scope 3 카테고리명", example = "사업장 관련 활동")
   private String scope3CategoryName; // 카테고리명
 
-  // ========================================================================
-  // 자재 코드 매핑 정보 (Material Code Mapping)
-  // ========================================================================
-
-  @Schema(description = "회사별 자재 코드", example = "L01")
-  private String companyMaterialCode; // 각 회사별 자재 코드
-
-  @Schema(description = "자재명", example = "휠")
-  private String materialName; // 자재명
 
   // ========================================================================
   // 자재코드 매핑 정보 (Material Code Mapping)
   // ========================================================================
 
+  @Schema(description = "자재 할당 정보 ID", example = "1")
+  private Long materialAssignmentId; // 자재 할당 정보 연결용 ID
+
+  @Schema(description = "자재 매핑 정보 ID", example = "1")
+  private Long materialMappingId; // 자재 매핑 정보 연결용 ID
+
   @Schema(description = "상위에서 할당받은 자재코드", example = "A100")
-  private String mappedMaterialCode; // 상위에서 할당받은 자재코드 (upstream material code)
+  private String upstreamMaterialCode; // 상위에서 할당받은 자재코드 (A100, FE100...) - 최상위인 경우 null
 
   @Schema(description = "내부 자재코드", example = "B100")
-  private String assignedMaterialCode; // 내부 자재코드 (internal material code)
+  private String internalMaterialCode; // 내부 자재코드 (B100, FE200...)
 
-  @Schema(description = "매핑된 자재명", example = "철강 부품")
-  private String mappedMaterialName; // 자재명
+
+  @Schema(description = "상위 협력사 ID", example = "1")
+  private Long upstreamPartnerId; // 상위 협력사 ID (null이면 본사)
 
   // ========================================================================
   // 프론트엔드 입력 데이터 (Frontend Input Data)
@@ -153,11 +151,11 @@ public class ScopeEmissionResponse {
         .scope2CategoryName(emission.getScope2CategoryName())
         .scope3CategoryNumber(emission.getScope3CategoryNumber())
         .scope3CategoryName(emission.getScope3CategoryName())
-        .companyMaterialCode(emission.getInternalMaterialCode()) // 자재코드 매핑에서 내부 코드 가져오기
-        .materialName(emission.getMaterialName()) // 자재코드 매핑에서 자재명 가져오기
-        .mappedMaterialCode(emission.getUpstreamMaterialCode()) // 상위에서 할당받은 자재코드
-        .assignedMaterialCode(emission.getInternalMaterialCode()) // 내부 자재코드
-        .mappedMaterialName(emission.getMaterialName()) // 매핑된 자재명
+        .materialAssignmentId(emission.getMaterialAssignment() != null ? emission.getMaterialAssignment().getId() : null) // 자재 할당 정보 ID
+        .materialMappingId(emission.getMaterialMapping() != null ? emission.getMaterialMapping().getId() : null) // 자재 매핑 정보 ID
+        .upstreamMaterialCode(emission.getUpstreamMaterialCode()) // 상위에서 할당받은 자재코드
+        .internalMaterialCode(emission.getInternalMaterialCode()) // 내부 자재코드
+        .upstreamPartnerId(emission.getMaterialMapping() != null ? emission.getMaterialMapping().getUpstreamPartnerId() : null) // 상위 협력사 ID
         .majorCategory(emission.getMajorCategory())
         .subcategory(emission.getSubcategory())
         .rawMaterial(emission.getRawMaterial())
@@ -173,5 +171,37 @@ public class ScopeEmissionResponse {
         .createdAt(emission.getCreatedAt())
         .updatedAt(emission.getUpdatedAt())
         .build();
+  }
+
+  // ========================================================================
+  // 호환성 메서드 (Compatibility Methods)
+  // ========================================================================
+
+  /**
+   * 기존 mappedMaterialCode 호환성
+   */
+  public String getMappedMaterialCode() {
+    return this.upstreamMaterialCode;
+  }
+
+  /**
+   * 기존 assignedMaterialCode 호환성
+   */
+  public String getAssignedMaterialCode() {
+    return this.internalMaterialCode;
+  }
+
+  /**
+   * 기존 mappedMaterialName 호환성
+   */
+  public String getMappedMaterialName() {
+    return null; // materialName 필드 제거로 인해 null 반환
+  }
+  
+  /**
+   * 기존 companyMaterialCode 호환성 (internalMaterialCode와 동일)
+   */
+  public String getCompanyMaterialCode() {
+    return this.internalMaterialCode;
   }
 }

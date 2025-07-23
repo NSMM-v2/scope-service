@@ -206,11 +206,16 @@ public class ScopeEmission {
     @PrePersist
     @PreUpdate
     private void validateInputData() {
-        // 배출량 계산 검증
-        if (activityAmount != null && emissionFactor != null) {
+        // 배출량 계산 검증 (소수점 정밀도 오차 허용)
+        if (activityAmount != null && emissionFactor != null && totalEmission != null) {
             BigDecimal calculated = activityAmount.multiply(emissionFactor);
-            if (totalEmission.compareTo(calculated) != 0) {
-                throw new IllegalStateException("배출량 계산이 일치하지 않습니다");
+            BigDecimal tolerance = new BigDecimal("0.000001"); // 허용 오차: 1e-6
+            BigDecimal difference = totalEmission.subtract(calculated).abs();
+            
+            if (difference.compareTo(tolerance) > 0) {
+                throw new IllegalStateException(
+                    String.format("배출량 계산이 일치하지 않습니다. 입력값: %s, 계산값: %s, 차이: %s", 
+                                totalEmission, calculated, difference));
             }
         }
 

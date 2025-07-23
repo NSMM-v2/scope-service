@@ -75,8 +75,6 @@ public class ScopeEmissionController {
     logHeaders("Scope 배출량 생성", userType, headquartersId, partnerId, treePath);
 
     try {
-      // 자재 코드 유효성 검증
-      // validateMaterialCodeForScope(request);
 
       ScopeEmissionResponse response = scopeEmissionService.createScopeEmission(
           request, userType, headquartersId, partnerId, treePath);
