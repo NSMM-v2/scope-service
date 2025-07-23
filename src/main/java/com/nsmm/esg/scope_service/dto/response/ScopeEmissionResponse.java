@@ -3,6 +3,7 @@ package com.nsmm.esg.scope_service.dto.response;
 import com.nsmm.esg.scope_service.enums.InputType;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.entity.ScopeEmission;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -77,6 +78,8 @@ public class ScopeEmissionResponse {
   @Schema(description = "내부 자재코드", example = "B100")
   private String internalMaterialCode; // 내부 자재코드 (B100, FE200...)
 
+  @Schema(description = "자재명", example = "철강 부품")
+  private String materialName; // 자재명
 
   @Schema(description = "상위 협력사 ID", example = "1")
   private Long upstreamPartnerId; // 상위 협력사 ID (null이면 본사)
@@ -155,7 +158,8 @@ public class ScopeEmissionResponse {
         .materialMappingId(emission.getMaterialMapping() != null ? emission.getMaterialMapping().getId() : null) // 자재 매핑 정보 ID
         .upstreamMaterialCode(emission.getUpstreamMaterialCode()) // 상위에서 할당받은 자재코드
         .internalMaterialCode(emission.getInternalMaterialCode()) // 내부 자재코드
-        .upstreamPartnerId(emission.getMaterialMapping() != null ? emission.getMaterialMapping().getUpstreamPartnerId() : null) // 상위 협력사 ID
+            .materialName(emission.getMaterialName()) // 내부 자재코드
+            .upstreamPartnerId(emission.getMaterialMapping() != null ? emission.getMaterialMapping().getUpstreamPartnerId() : null) // 상위 협력사 ID
         .majorCategory(emission.getMajorCategory())
         .subcategory(emission.getSubcategory())
         .rawMaterial(emission.getRawMaterial())
@@ -173,35 +177,4 @@ public class ScopeEmissionResponse {
         .build();
   }
 
-  // ========================================================================
-  // 호환성 메서드 (Compatibility Methods)
-  // ========================================================================
-
-  /**
-   * 기존 mappedMaterialCode 호환성
-   */
-  public String getMappedMaterialCode() {
-    return this.upstreamMaterialCode;
-  }
-
-  /**
-   * 기존 assignedMaterialCode 호환성
-   */
-  public String getAssignedMaterialCode() {
-    return this.internalMaterialCode;
-  }
-
-  /**
-   * 기존 mappedMaterialName 호환성
-   */
-  public String getMappedMaterialName() {
-    return null; // materialName 필드 제거로 인해 null 반환
-  }
-  
-  /**
-   * 기존 companyMaterialCode 호환성 (internalMaterialCode와 동일)
-   */
-  public String getCompanyMaterialCode() {
-    return this.internalMaterialCode;
-  }
 }

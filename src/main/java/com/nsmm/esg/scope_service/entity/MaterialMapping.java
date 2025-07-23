@@ -28,7 +28,6 @@ import java.util.List;
         @Index(name = "idx_mapping_chain", columnList = "headquarters_id, upstream_material_code, internal_material_code"),
         @Index(name = "idx_partner_level_active", columnList = "partner_id, partner_level, is_active"),
         @Index(name = "idx_downstream_tracking", columnList = "has_downstream_assignment, downstream_assignment_count"),
-        @Index(name = "idx_tree_path_active", columnList = "tree_path, is_active, is_deleted")
 })
 @Getter
 @Builder(toBuilder = true)
@@ -48,7 +47,7 @@ public class MaterialMapping {
     @Column(name = "headquarters_id", nullable = false)
     private Long headquartersId; // 본사 ID
 
-    @Column(name = "partner_id", nullable = false)
+    @Column(name = "partner_id")
     private Long partnerId; // 매핑을 생성한 협력사 ID
 
     @Column(name = "partner_level", nullable = false)

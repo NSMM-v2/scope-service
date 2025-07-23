@@ -117,52 +117,6 @@ public class ScopeEmissionUpdateRequest {
   @Max(value = 12, message = "보고 월은 12 이하이어야 합니다")
   private Integer reportingMonth;
 
-  // ========================================================================
-  // 호환성 메서드 (Compatibility Methods)
-  // ========================================================================
 
-  /**
-   * 기존 mappedMaterialCode 호환성
-   */
-  public String getMappedMaterialCode() {
-    return this.upstreamMaterialCode;
-  }
-
-  public void setMappedMaterialCode(String mappedMaterialCode) {
-    this.upstreamMaterialCode = mappedMaterialCode;
-  }
-
-  /**
-   * 기존 assignedMaterialCode 호환성
-   */
-  public String getAssignedMaterialCode() {
-    return this.internalMaterialCode;
-  }
-
-  public void setAssignedMaterialCode(String assignedMaterialCode) {
-    this.internalMaterialCode = assignedMaterialCode;
-  }
-
-  /**
-   * 기존 mappedMaterialName 호환성
-   */
-  public String getMappedMaterialName() {
-    return this.materialName;
-  }
-
-  public void setMappedMaterialName(String mappedMaterialName) {
-    this.materialName = mappedMaterialName;
-  }
-
-  /**
-   * 기존 companyMaterialCode 호환성 (internalMaterialCode와 동일)
-   */
-  public String getCompanyMaterialCode() {
-    return this.internalMaterialCode;
-  }
-
-  public void setCompanyMaterialCode(String companyMaterialCode) {
-    this.internalMaterialCode = companyMaterialCode;
-  }
 
 }
