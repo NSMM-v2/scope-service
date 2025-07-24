@@ -564,4 +564,50 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                 @Param("partnerId") Long partnerId,
                 @Param("year") Integer year,
                 @Param("month") Integer month);
+
+        // ========================================================================
+        // 레벨별 맵핑된 자재코드 조회 쿼리 (Level-based Mapped Material Aggregation)
+        // ========================================================================
+
+        // 특정 레벨의 맵핑된 자재코드별 Scope 1+2 통합 배출량 집계
+        @Query("SELECT mm.internalMaterialCode, " +
+               "mm.materialName, " +
+               "mm.upstreamMaterialCode, " +
+               "COALESCE(SUM(CASE WHEN s.scopeType = 'SCOPE1' THEN s.totalEmission ELSE 0 END), 0), " +
+               "COALESCE(SUM(CASE WHEN s.scopeType = 'SCOPE2' THEN s.totalEmission ELSE 0 END), 0), " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "JOIN s.materialMapping mm " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND mm.partnerLevel = :targetLevel " +
+               "AND s.hasMaterialMapping = true " +
+               "AND s.materialMapping IS NOT NULL " +
+               "AND s.scopeType IN ('SCOPE1', 'SCOPE2') " +
+               "AND s.reportingYear = :year " +
+               "AND (:month IS NULL OR s.reportingMonth = :month) " +
+               "GROUP BY mm.internalMaterialCode, mm.materialName, mm.upstreamMaterialCode " +
+               "ORDER BY mm.internalMaterialCode")
+        List<Object[]> findMappedMaterialEmissionsByLevel(
+                @Param("headquartersId") Long headquartersId,
+                @Param("targetLevel") Integer targetLevel,
+                @Param("year") Integer year,
+                @Param("month") Integer month);
+
+        // 특정 레벨의 맵핑된 자재코드 목록 조회 (배출량 집계 제외, upstreamMaterialCode 기준 중복 제거)
+        @Query("SELECT MIN(mm.internalMaterialCode), " +
+               "MIN(mm.materialName), " +
+               "mm.upstreamMaterialCode " +
+               "FROM ScopeEmission s " +
+               "JOIN s.materialMapping mm " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND mm.partnerLevel = :targetLevel " +
+               "AND s.hasMaterialMapping = true " +
+               "AND s.materialMapping IS NOT NULL " +
+               "GROUP BY mm.upstreamMaterialCode " +
+               "ORDER BY mm.upstreamMaterialCode")
+        List<Object[]> findDistinctMappedMaterialCodesByLevel(
+                @Param("headquartersId") Long headquartersId,
+                @Param("targetLevel") Integer targetLevel);
+
 }

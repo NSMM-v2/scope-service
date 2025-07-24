@@ -39,4 +39,19 @@ public interface MaterialAssignmentRepository extends JpaRepository<MaterialAssi
     @Query("SELECT a FROM MaterialAssignment a WHERE a.materialCode = :materialCode AND a.toPartnerId = :partnerId AND a.isActive = true")
     Optional<MaterialAssignment> findByMaterialCodeAndToPartnerId(@Param("materialCode") String materialCode, @Param("partnerId") String partnerId);
 
+    /**
+     * 레벨별 맵핑된 자재 정보 조회 (자재코드, 자재명, 자재설명)
+     * isMapped = true이고 isActive = true인 항목만 조회
+     */
+    @Query("SELECT DISTINCT ma.materialCode, ma.materialName, ma.materialDescription " +
+           "FROM MaterialAssignment ma " +
+           "WHERE ma.headquartersId = :headquartersId " +
+           "AND ma.toLevel = :targetLevel " +
+           "AND ma.isMapped = true " +
+           "AND ma.isActive = true " +
+           "ORDER BY ma.materialCode")
+    List<Object[]> findMappedMaterialsByLevel(
+            @Param("headquartersId") Long headquartersId,
+            @Param("targetLevel") Integer targetLevel);
+
 }

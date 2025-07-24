@@ -231,7 +231,7 @@ public class ScopeEmissionController {
     log.info("Scope 배출량 삭제 요청: id={}, userType={}", id, userType);
     logHeaders("Scope 배출량 삭제", userType, headquartersId, partnerId, treePath);
 
-    try {
+  try {
       scopeEmissionService.deleteScopeEmission(id, userType, headquartersId, partnerId, treePath);
       return ResponseEntity.ok(ApiResponse.success("삭제 완료", "Scope 배출량 데이터를 삭제했습니다."));
     } catch (IllegalArgumentException e) {

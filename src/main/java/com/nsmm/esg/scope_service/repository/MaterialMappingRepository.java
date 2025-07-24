@@ -18,6 +18,7 @@ import java.util.Optional;
  * - 협력사별 매핑 조회
  * - 매핑 체인 추적
  * - 하위 할당 관리
+ * - 계층별 활성 맵핑 조회
  */
 @Repository
 public interface MaterialMappingRepository extends JpaRepository<MaterialMapping, Long> {
@@ -30,5 +31,6 @@ public interface MaterialMappingRepository extends JpaRepository<MaterialMapping
    */
   @Query("SELECT COUNT(mm) FROM MaterialMapping mm WHERE mm.materialAssignment = :materialAssignment")
   long countByMaterialAssignment(@Param("materialAssignment") MaterialAssignment materialAssignment);
+
 
 }

@@ -25,8 +25,6 @@ import java.util.List;
         @Index(name = "idx_internal_code", columnList = "internal_material_code"),
         @Index(name = "idx_scope_emission", columnList = "scope_emission_id"),
         @Index(name = "idx_assignment_link", columnList = "material_assignment_id"),
-        @Index(name = "idx_mapping_chain", columnList = "headquarters_id, upstream_material_code, internal_material_code"),
-        @Index(name = "idx_partner_level_active", columnList = "partner_id, partner_level, is_active"),
         @Index(name = "idx_downstream_tracking", columnList = "has_downstream_assignment, downstream_assignment_count"),
 })
 @Getter

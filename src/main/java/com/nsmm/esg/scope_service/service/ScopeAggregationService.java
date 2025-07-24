@@ -13,12 +13,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import com.nsmm.esg.scope_service.repository.ScopeEmissionRepository;
+import com.nsmm.esg.scope_service.repository.MaterialAssignmentRepository;
 import com.nsmm.esg.scope_service.dto.response.MonthlyEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.CategoryYearlyEmission;
 import com.nsmm.esg.scope_service.dto.response.CategoryMonthlyEmission;
 import com.nsmm.esg.scope_service.dto.response.ScopeCategoryResponse;
 import com.nsmm.esg.scope_service.dto.response.Scope3CombinedEmissionResponse;
 import com.nsmm.esg.scope_service.dto.response.Scope3SpecialAggregationResponse;
+import com.nsmm.esg.scope_service.dto.response.MappedMaterialMonthlyTotalResponse;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 
 /**
@@ -41,6 +43,7 @@ import com.nsmm.esg.scope_service.enums.ScopeType;
 public class ScopeAggregationService {
 
   private final ScopeEmissionRepository scopeEmissionRepository;
+  private final MaterialAssignmentRepository materialAssignmentRepository;
   private final Scope3SpecialAggregationService scope3SpecialAggregationService;
 
   // ========================================================================
@@ -630,6 +633,193 @@ public class ScopeAggregationService {
         totalCat1.add(totalCat2).add(totalCat4).add(totalCat5));
 
     return yearlySpecialAggregation;
+  }
+
+  // ========================================================================
+  // 맵핑된 자재코드 대시보드 집계 메서드 (Mapped Material Dashboard Aggregation)
+  // ========================================================================
+
+
+  /**
+   * 조회 대상 레벨 계산
+   * 각 조직의 직속 하위 레벨을 계산
+   *
+   * @param userType 사용자 타입
+   * @param userLevel 현재 사용자 레벨
+   * @return 조회 대상 레벨
+   */
+  private Integer calculateTargetLevel(String userType, Integer userLevel) {
+    if ("HEADQUARTERS".equals(userType)) {
+      // 본사(레벨 0)는 1차사(레벨 1)를 조회
+      return 1;
+    } else if ("PARTNER".equals(userType)) {
+      if (userLevel == null) {
+        throw new RuntimeException("협력사의 레벨 정보가 필요합니다");
+      }
+
+      // 마지막 레벨 확인 (예: 3차사는 자신의 레벨을 조회)
+      if (userLevel >= 3) {
+        return userLevel; // 자신의 레벨 조회
+      } else {
+        return userLevel + 1; // 직속 하위 레벨 조회
+      }
+    }
+
+    throw new RuntimeException("알 수 없는 사용자 타입입니다: " + userType);
+  }
+
+
+  /**
+   * 맵핑된 자재코드 접근 권한 검증
+   */
+  private void validateMappedMaterialAccess(String userType, Long partnerId, String treePath) {
+    // 본사는 모든 맵핑 데이터에 접근 가능
+    if ("HEADQUARTERS".equals(userType)) {
+      return;
+    }
+
+    // 협력사는 본인의 맵핑 데이터만 접근 가능
+    if ("PARTNER".equals(userType)) {
+      if (partnerId == null) {
+        throw new RuntimeException("협력사 ID가 필요합니다");
+      }
+      
+      if (treePath == null || treePath.trim().isEmpty()) {
+        throw new RuntimeException("계층 경로 정보가 필요합니다");
+      }
+      
+      return; // 협력사 접근 허용
+    }
+
+    throw new RuntimeException("맵핑된 자재코드 데이터에 접근할 권한이 없습니다");
+  }
+
+  /**
+   * 맵핑된 자재코드 목록 조회 (레벨 기반)
+   * MaterialAssignment 테이블에서 isMapped = true인 자재 정보만 반환
+   * 
+   * @param headquartersId 본사 ID
+   * @param userType 사용자 타입
+   * @param partnerId 협력사 ID
+   * @param userLevel 사용자 레벨
+   * @return 맵핑된 자재 정보 목록 (자재코드, 자재명, 자재설명)
+   */
+  @Transactional
+  public List<Object[]> getMappedMaterialCodeList(
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      Integer userLevel) {
+
+    log.info("맵핑된 자재코드 목록 조회 - 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 레벨: {}",
+        headquartersId, userType, partnerId, userLevel);
+
+    try {
+      // 조회 대상 레벨 계산
+      Integer targetLevel = calculateTargetLevel(userType, userLevel);
+      
+      log.info("자재코드 목록 조회 대상 레벨: {}", targetLevel);
+      
+      // MaterialAssignment 테이블에서 맵핑된 자재 정보 조회
+      return materialAssignmentRepository.findMappedMaterialsByLevel(headquartersId, targetLevel);
+
+    } catch (Exception e) {
+      log.error("맵핑된 자재코드 목록 조회 중 오류 발생: {}", e.getMessage(), e);
+      throw new RuntimeException("맵핑된 자재코드 목록 조회 중 오류가 발생했습니다", e);
+    }
+  }
+
+  /**
+   * 맵핑된 자재코드 월별 총합 조회
+   * 지정된 연도의 1월부터 12월까지 각 월별 Scope 1 + Scope 2 총합 반환
+   * 
+   * @param year 보고 연도
+   * @param headquartersId 본사 ID
+   * @param userType 사용자 타입 (HEADQUARTERS | PARTNER)
+   * @param partnerId 협력사 ID (협력사인 경우)
+   * @param userLevel 사용자 레벨 (0: 본사, 1: 1차사, 2: 2차사...)
+   * @param treePath 계층 경로
+   * @return 월별 Scope 1+2 총합 응답
+   */
+  @Transactional
+  public MappedMaterialMonthlyTotalResponse getMappedMaterialMonthlyTotals(
+      Integer year,
+      Long headquartersId,
+      String userType,
+      Long partnerId,
+      Integer userLevel,
+      String treePath) {
+
+    log.info("맵핑된 자재코드 월별 총합 조회 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 레벨: {}",
+        year, headquartersId, userType, partnerId, userLevel);
+
+    try {
+      // 권한 검증
+      validateMappedMaterialAccess(userType, partnerId, treePath);
+
+      // 조회 대상 레벨 계산
+      Integer targetLevel = calculateTargetLevel(userType, userLevel);
+      
+      log.info("월별 총합 조회 대상 레벨: {}", targetLevel);
+
+      // 1월부터 12월까지 각 월별 총합 조회
+      List<MappedMaterialMonthlyTotalResponse.MonthlyTotal> monthlyTotals = new ArrayList<>();
+      
+      for (int month = 1; month <= 12; month++) {
+        try {
+          // 각 월별로 맵핑된 자재 배출량 조회
+          List<Object[]> monthlyResults = scopeEmissionRepository.findMappedMaterialEmissionsByLevel(
+              headquartersId, targetLevel, year, month);
+
+          BigDecimal monthlyTotal = BigDecimal.ZERO;
+          Long monthlyDataCount = 0L;
+
+          // 해당 월의 모든 자재의 Scope 1 + Scope 2 합산
+          for (Object[] result : monthlyResults) {
+            BigDecimal scope1 = (BigDecimal) result[3]; // scope1Emission
+            BigDecimal scope2 = (BigDecimal) result[4]; // scope2Emission
+            Long dataCount = (Long) result[6]; // dataCount
+            
+            monthlyTotal = monthlyTotal.add(scope1 != null ? scope1 : BigDecimal.ZERO);
+            monthlyTotal = monthlyTotal.add(scope2 != null ? scope2 : BigDecimal.ZERO);
+            monthlyDataCount += dataCount != null ? dataCount : 0L;
+          }
+
+          // 월별 총합 객체 생성
+          MappedMaterialMonthlyTotalResponse.MonthlyTotal monthlyTotalItem = 
+              MappedMaterialMonthlyTotalResponse.MonthlyTotal.builder()
+                  .month(month)
+                  .totalEmission(monthlyTotal)
+                  .dataCount(monthlyDataCount)
+                  .build();
+
+          monthlyTotals.add(monthlyTotalItem);
+
+          log.debug("{}월 총합 조회 완료 - 배출량: {}, 데이터 건수: {}", month, monthlyTotal, monthlyDataCount);
+
+        } catch (Exception e) {
+          log.warn("{}월 데이터 조회 중 오류 발생: {}", month, e.getMessage());
+          // 해당 월 데이터 없으면 0으로 처리하고 계속 진행
+          monthlyTotals.add(MappedMaterialMonthlyTotalResponse.MonthlyTotal.createEmptyMonth(month));
+        }
+      }
+
+      // 응답 생성
+      Long organizationId = "HEADQUARTERS".equals(userType) ? headquartersId : partnerId;
+      MappedMaterialMonthlyTotalResponse response;
+      
+      if ("HEADQUARTERS".equals(userType)) {
+        response = MappedMaterialMonthlyTotalResponse.createHeadquartersResponse(headquartersId, year, monthlyTotals);
+      } else {
+        response = MappedMaterialMonthlyTotalResponse.createPartnerResponse(partnerId, year, monthlyTotals);
+      }
+
+      return response;
+
+    } catch (Exception e) {
+      log.error("맵핑된 자재코드 월별 총합 조회 중 오류 발생 - 연도: {}: {}", year, e.getMessage(), e);
+      throw new RuntimeException("맵핑된 자재코드 월별 총합 조회 중 오류가 발생했습니다", e);
+    }
   }
 
 }
