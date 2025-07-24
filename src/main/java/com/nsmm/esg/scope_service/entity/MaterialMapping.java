@@ -20,12 +20,11 @@ import java.util.List;
  */
 @Entity
 @Table(name = "material_mapping", indexes = {
-        @Index(name = "idx_partner_mapping", columnList = "partner_id, is_active"),
+        @Index(name = "idx_partner_mapping", columnList = "partner_id"),
         @Index(name = "idx_upstream_code", columnList = "upstream_material_code"),
         @Index(name = "idx_internal_code", columnList = "internal_material_code"),
         @Index(name = "idx_scope_emission", columnList = "scope_emission_id"),
         @Index(name = "idx_assignment_link", columnList = "material_assignment_id"),
-        @Index(name = "idx_downstream_tracking", columnList = "has_downstream_assignment, downstream_assignment_count"),
 })
 @Getter
 @Builder(toBuilder = true)

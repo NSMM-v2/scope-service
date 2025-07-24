@@ -731,7 +731,8 @@ public class ScopeAggregationService {
 
   /**
    * 맵핑된 자재코드 월별 총합 조회
-   * 지정된 연도의 1월부터 12월까지 각 월별 Scope 1 + Scope 2 총합 반환
+   * 지정된 연도의 월별 Scope 1 + Scope 2 총합 및 자재별 상세 정보 반환
+   * 현재년도는 현재월까지, 다른 년도는 12월까지 표시
    * 
    * @param year 보고 연도
    * @param headquartersId 본사 ID
@@ -739,7 +740,7 @@ public class ScopeAggregationService {
    * @param partnerId 협력사 ID (협력사인 경우)
    * @param userLevel 사용자 레벨 (0: 본사, 1: 1차사, 2: 2차사...)
    * @param treePath 계층 경로
-   * @return 월별 Scope 1+2 총합 응답
+   * @return 월별 Scope 1+2 총합 및 자재별 상세 정보 응답
    */
   @Transactional
   public MappedMaterialMonthlyTotalResponse getMappedMaterialMonthlyTotals(
@@ -762,10 +763,17 @@ public class ScopeAggregationService {
       
       log.info("월별 총합 조회 대상 레벨: {}", targetLevel);
 
-      // 1월부터 12월까지 각 월별 총합 조회
+      // 현재 연도/월 확인
+      int currentYear = java.time.LocalDate.now().getYear();
+      int currentMonth = java.time.LocalDate.now().getMonthValue();
+      int maxMonth = (year.equals(currentYear)) ? currentMonth : 12;
+      
+      log.info("조회 범위 - 연도: {}, 최대월: {} (현재년도: {}, 현재월: {})", year, maxMonth, currentYear, currentMonth);
+
+      // 월별 총합 조회
       List<MappedMaterialMonthlyTotalResponse.MonthlyTotal> monthlyTotals = new ArrayList<>();
       
-      for (int month = 1; month <= 12; month++) {
+      for (int month = 1; month <= maxMonth; month++) {
         try {
           // 각 월별로 맵핑된 자재 배출량 조회
           List<Object[]> monthlyResults = scopeEmissionRepository.findMappedMaterialEmissionsByLevel(
@@ -804,14 +812,47 @@ public class ScopeAggregationService {
         }
       }
 
+      // 자재별 상세 정보 조회 (연간 전체 데이터)
+      List<MappedMaterialMonthlyTotalResponse.MaterialDetail> materialDetails = new ArrayList<>();
+      
+      try {
+        // 연간 전체 자재별 배출량 정보 조회 (month=null로 전체 조회)
+        List<Object[]> yearlyMaterialResults = scopeEmissionRepository.findMappedMaterialEmissionsByLevel(
+            headquartersId, targetLevel, year, null);
+        
+        // Object[] 결과를 MaterialDetail로 변환
+        // 순서: internalMaterialCode, materialName, upstreamMaterialCode, scope1Emission, scope2Emission, totalEmission, dataCount
+        for (Object[] result : yearlyMaterialResults) {
+          MappedMaterialMonthlyTotalResponse.MaterialDetail materialDetail = 
+              MappedMaterialMonthlyTotalResponse.MaterialDetail.builder()
+                  .materialName(result[1] != null ? (String) result[1] : "")
+                  .internalMaterialCode(result[0] != null ? (String) result[0] : "")
+                  .upstreamMaterialCode(result[2] != null ? (String) result[2] : "")
+                  .scope1Emission(result[3] != null ? (BigDecimal) result[3] : BigDecimal.ZERO)
+                  .scope2Emission(result[4] != null ? (BigDecimal) result[4] : BigDecimal.ZERO)
+                  .totalEmission(result[5] != null ? (BigDecimal) result[5] : BigDecimal.ZERO)
+                  .build();
+          
+          materialDetails.add(materialDetail);
+        }
+        
+        log.info("자재별 상세 정보 조회 완료 - 자재 수: {}", materialDetails.size());
+        
+      } catch (Exception e) {
+        log.warn("자재별 상세 정보 조회 중 오류 발생: {}", e.getMessage());
+        // 자재별 상세 정보 조회 실패 시 빈 리스트로 처리
+        materialDetails = new ArrayList<>();
+      }
+
       // 응답 생성
-      Long organizationId = "HEADQUARTERS".equals(userType) ? headquartersId : partnerId;
       MappedMaterialMonthlyTotalResponse response;
       
       if ("HEADQUARTERS".equals(userType)) {
-        response = MappedMaterialMonthlyTotalResponse.createHeadquartersResponse(headquartersId, year, monthlyTotals);
+        response = MappedMaterialMonthlyTotalResponse.createHeadquartersResponse(
+            headquartersId, year, monthlyTotals, materialDetails);
       } else {
-        response = MappedMaterialMonthlyTotalResponse.createPartnerResponse(partnerId, year, monthlyTotals);
+        response = MappedMaterialMonthlyTotalResponse.createPartnerResponse(
+            partnerId, year, monthlyTotals, materialDetails);
       }
 
       return response;
