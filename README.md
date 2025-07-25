@@ -10,7 +10,9 @@ Scope Service는 GHG(온실가스) 프로토콜에 따른 **Scope 1, 2, 3 탄소
 
 - **통합 Scope 관리**: Scope 1(직접배출), Scope 2(간접배출-에너지), Scope 3(기타간접배출) 통합 관리
 - **카테고리별 배출량 계산**: Scope별 세부 카테고리 기반 정밀 배출량 산정
-- **제품 코드 매핑**: 제품별 탄소배출량 추적 및 LCA(생명주기평가) 연동
+- **자재코드 관리 시스템**: 협력사 간 자재코드 할당, 매핑, 추적을 통한 공급망 탄소발자국 관리
+- **계층적 자재 할당**: TreePath 기반 본사→협력사 자재코드 할당 및 권한 관리
+- **매핑 기반 배출량 추적**: 자재코드와 Scope 배출량 연동을 통한 제품별 탄소발자국 추적
 - **권한 기반 데이터 관리**: 본사/협력사 계층적 권한으로 조직별 배출량 데이터 관리
 - **실시간 집계**: 월별/연별 배출량 통계 및 트렌드 분석
 
@@ -65,12 +67,14 @@ graph TB
 ```mermaid
 graph LR
     subgraph "Scope 서비스 아키텍처"
-        API[REST API 컨트롤러<br/>ScopeEmissionController<br/>ScopeAggregationController] --> BIZ[비즈니스 로직 서비스<br/>ScopeEmissionService<br/>ScopeAggregationService<br/>Scope3SpecialAggregationService]
-        BIZ --> DATA[데이터 접근 계층<br/>ScopeEmissionRepository<br/>JPA/Hibernate]
+        API[REST API 컨트롤러<br/>ScopeEmissionController<br/>ScopeAggregationController<br/>MaterialAssignmentController] --> BIZ[비즈니스 로직 서비스<br/>ScopeEmissionService<br/>ScopeAggregationService<br/>Scope3SpecialAggregationService<br/>MaterialAssignmentService<br/>MaterialDataService]
+        BIZ --> DATA[데이터 접근 계층<br/>ScopeEmissionRepository<br/>MaterialAssignmentRepository<br/>MaterialMappingRepository<br/>JPA/Hibernate]
         BIZ --> CALC[배출량 계산 엔진<br/>집계 알고리즘<br/>특수 집계 로직]
         
         subgraph "도메인 모델"
             ENTITY[ScopeEmission<br/>탄소배출량 엔티티<br/>27개 필드]
+            MATERIAL[MaterialAssignment<br/>자재코드 할당 엔티티<br/>조직/자재/메타정보]
+            MAPPING[MaterialMapping<br/>자재코드 매핑 엔티티<br/>매핑/연결정보]
             TYPE[ScopeType<br/>SCOPE1/SCOPE2/SCOPE3]
             CAT1[Scope1Category<br/>직접배출 10개 카테고리]
             CAT2[Scope2Category<br/>간접배출 2개 카테고리]
@@ -80,20 +84,28 @@ graph LR
             ENTITY -.-> CAT1
             ENTITY -.-> CAT2
             ENTITY -.-> CAT3
+            ENTITY -.-> MAPPING
+            MATERIAL --> MAPPING
         end
         
         DATA --> ENTITY
+        DATA --> MATERIAL
+        DATA --> MAPPING
         CALC --> ENTITY
         
         subgraph "응답 DTO"
             RESP1[ScopeEmissionResponse<br/>배출량 조회 응답]
             RESP2[CategoryMonthlyEmission<br/>카테고리별 월간 집계]
             RESP3[Scope3CombinedEmissionResponse<br/>Scope3 통합 집계]
+            RESP4[MaterialAssignmentResponse<br/>자재코드 할당 응답]
+            RESP5[MappedMaterialCodeResponse<br/>매핑된 자재코드 응답]
         end
         
         BIZ --> RESP1
         BIZ --> RESP2
         BIZ --> RESP3
+        BIZ --> RESP4
+        BIZ --> RESP5
     end
     
     style API fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
@@ -313,15 +325,60 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+    
+    MaterialAssignment {
+        bigint id PK
+        bigint headquarters_id FK "본사 ID"
+        string from_partner_id "할당하는 협력사 ID"
+        string to_partner_id "할당받는 협력사 ID"
+        int from_level "할당하는 협력사 레벨"
+        int to_level "할당받는 협력사 레벨"
+        string material_code "자재코드"
+        string material_name "자재명"
+        string material_category "자재 카테고리"
+        string material_description "자재 상세 설명"
+        boolean is_active "활성 상태"
+        boolean is_mapped "매핑 생성 여부"
+        datetime created_at
+        datetime updated_at
+    }
+    
+    MaterialMapping {
+        bigint id PK
+        bigint headquarters_id FK "본사 ID"
+        bigint partner_id FK "매핑 생성 협력사 ID"
+        int partner_level "협력사 레벨"
+        string tree_path "계층 경로"
+        string upstream_material_code "상위 자재코드"
+        string internal_material_code "내부 자재코드"
+        string material_name "자재명"
+        bigint upstream_partner_id "상위 협력사 ID"
+        bigint material_assignment_id FK "연결된 할당 ID"
+        bigint scope_emission_id FK "연결된 배출량 ID"
+        datetime created_at
+        datetime updated_at
+    }
+    
+    ScopeEmission ||--o{ MaterialMapping : "배출량-매핑 연결"
+    MaterialAssignment ||--o{ MaterialMapping : "할당-매핑 연결"
+    MaterialAssignment ||--o{ ScopeEmission : "할당-배출량 연결"
 ```
 
 ### Scope 카테고리 매핑
 
-| Scope Type | 카테고리 수 | 설명 | 제품 코드 매핑 |
+| Scope Type | 카테고리 수 | 설명 | 자재코드 매핑 |
 |------------|-------------|------|----------------|
 | **Scope 1** | 10개 | 직접배출 (고정연소, 이동연소, 공정배출, 냉매누출) | 지원 |
 | **Scope 2** | 2개 | 간접배출-에너지 (전력, 스팀/열) | 지원 |
 | **Scope 3** | 15개 | 기타간접배출 (구매 제품/서비스, 자본재, 투자 등) | 미지원 |
+
+### 자재코드 관리 엔티티 관계
+
+| 엔티티 | 목적 | 주요 필드 | 관계 |
+|--------|------|-----------|------|
+| **MaterialAssignment** | 협력사 간 자재코드 할당 관리 | materialCode, fromPartnerId, toPartnerId, isMapped | OneToMany → MaterialMapping |
+| **MaterialMapping** | Scope 계산 시 자재코드 매핑 | upstreamMaterialCode, internalMaterialCode, scopeEmissionId | ManyToOne → MaterialAssignment |
+| **ScopeEmission** | 탄소배출량 데이터 + 자재코드 연결 | companyProductCode, hasProductMapping | ManyToOne → MaterialMapping |
 
 ## 보안 및 권한
 
@@ -405,26 +462,109 @@ sequenceDiagram
     Note over 클라이언트,DB: 핵심 구현 포인트:<br/>• 특정 월만 조회하는 정밀 필터링<br/>• 복합 카테고리 집계 알고리즘<br/>• 권한 기반 데이터 격리
 ```
 
-## 배출량 계산 알고리즘
+## 자재코드 관리 시스템
 
-### 기본 계산 공식
+Scope Service는 **협력사 간 자재코드 할당 및 매핑 관리 시스템**을 구현하여 공급망 전체의 탄소발자국 추적을 지원합니다.
 
-```java
-// 기본 배출량 계산
-BigDecimal totalEmission = activityAmount.multiply(emissionFactor);
+### 자재코드 할당 시스템
 
-// 활동량 × 배출계수 = 총 배출량 (tCO2eq)
-// 예: 전력 사용량 1,000 kWh × 배출계수 0.4781 kgCO2eq/kWh = 478.1 kgCO2eq
+```mermaid
+graph TB
+    subgraph "자재코드 할당 시스템 구조"
+        HQ[본사<br/>Headquarters<br/>자재코드 소유자]
+        P1[1차 협력사<br/>Primary Partner<br/>Level 1]
+        P2[2차 협력사<br/>Secondary Partner<br/>Level 2]
+        P3[3차 협력사<br/>Tertiary Partner<br/>Level 3]
+        
+        subgraph "자재코드 할당 관계"
+            ASSIGN1[MaterialAssignment<br/>본사 → 1차사<br/>fromPartnerId: null<br/>toPartnerId: P1<br/>materialCode: ST001]
+            ASSIGN2[MaterialAssignment<br/>1차사 → 2차사<br/>fromPartnerId: P1<br/>toPartnerId: P2<br/>materialCode: ST001]
+            ASSIGN3[MaterialAssignment<br/>2차사 → 3차사<br/>fromPartnerId: P2<br/>toPartnerId: P3<br/>materialCode: ST001]
+        end
+        
+        HQ -->|할당| ASSIGN1
+        P1 -->|재할당| ASSIGN2
+        P2 -->|재할당| ASSIGN3
+        
+        ASSIGN1 -.->|권한 체크| P1
+        ASSIGN2 -.->|권한 체크| P2
+        ASSIGN3 -.->|권한 체크| P3
+        
+        subgraph "권한 기반 데이터 격리"
+            AUTH[TreePath 기반 권한<br/>/1/L1-001/L2-003/<br/>계층적 접근 제어]
+        end
+        
+        AUTH -.-> ASSIGN1
+        AUTH -.-> ASSIGN2
+        AUTH -.-> ASSIGN3
+    end
+    
+    style HQ fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+    style P1 fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    style P2 fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style P3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style ASSIGN1 fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style ASSIGN2 fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style ASSIGN3 fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style AUTH fill:#e0f2f1,stroke:#00695c,stroke-width:2px
 ```
 
-### 배출계수 적용 기준
+### 자재코드 매핑 시스템
 
-| 분류 | 단위 | 배출계수 예시 | 설명 |
-|------|------|---------------|------|
-| **전력** | kWh | 0.4781 kgCO2eq/kWh | 국가 전력 배출계수 |
-| **도시가스** | MJ | 0.0561 kgCO2eq/MJ | 연료 연소 배출계수 |
-| **경유** | L | 2.6447 kgCO2eq/L | 이동연소 배출계수 |
-| **냉매** | kg | 1,810 kgCO2eq/kg | 지구온난화지수(GWP) |
+```mermaid
+sequenceDiagram
+    participant 협력사 as 협력사<br/>(Partner)
+    participant API as Material API<br/>(MaterialAssignmentController)
+    paragraph 매핑서비스 as MaterialMapping<br/>Service
+    participant DB as MySQL DB<br/>(material_mapping)
+    participant 배출량 as ScopeEmission<br/>(연결된 배출량 데이터)
+
+    협력사->>API: 자재코드 매핑 요청<br/>POST /scope/material-mapping
+    Note over 협력사,API: 요청 데이터: { upstreamMaterialCode: "ST001",<br/>internalMaterialCode: "B100", materialName: "철강재" }
+    
+    API->>매핑서비스: 매핑 생성 요청<br/>(사용자 권한 검증 포함)
+    
+    매핑서비스->>매핑서비스: 할당 검증<br/>(ST001이 해당 협력사에게 할당되었는지 확인)
+    
+    alt 할당된 자재코드인 경우
+        매핑서비스->>DB: MaterialMapping 엔티티 생성<br/>(upstreamMaterialCode, internalMaterialCode 매핑)
+        DB-->>매핑서비스: 매핑 엔티티 저장 완료
+        
+        매핑서비스->>매핑서비스: MaterialAssignment.isMapped = true 업데이트<br/>(할당 상태를 매핑됨으로 변경)
+        
+        opt Scope 배출량 계산 연동
+            매핑서비스->>배출량: ScopeEmission과 연결<br/>(materialMapping 필드 설정)
+            배출량-->>매핑서비스: 배출량 데이터 연결 완료
+        end
+        
+        매핑서비스-->>API: 매핑 성공 응답<br/>(MaterialMappingResponse)
+        API-->>협력사: 201 Created<br/>매핑 생성 완료
+        
+    else 할당되지 않은 자재코드인 경우
+        매핑서비스-->>API: 권한 오류<br/>(해당 자재코드가 할당되지 않음)
+        API-->>협력사: 403 Forbidden<br/>매핑 권한 없음
+    end
+    
+    Note over 협력사,배출량: 핵심 구현 포인트:<br/>• 할당된 자재코드만 매핑 가능<br/>• TreePath 기반 권한 검증<br/>• Scope 배출량과 자동 연결
+```
+
+### 더미 데이터 시스템
+
+MaterialDataService는 **현대자동차 기준 자동차 제조업 특화 더미 데이터**를 제공합니다.
+
+#### 자재 카테고리별 더미 데이터 (총 16개)
+
+| 카테고리 | 자재 수 | 자재코드 예시 | 설명 |
+|----------|---------|---------------|------|
+| **강재** | 4개 | ST001, ST002, ST003, ST004 | 냉간압연강판, 열간압연강판, 고장력강판, 스테인리스강 |
+| **비철금속** | 3개 | AL001, CU001, ZN001 | 알루미늄합금, 구리선재, 아연도금강판 |
+| **플라스틱** | 2개 | PL001, PL002 | ABS수지, 폴리프로필렌 |
+| **고무** | 1개 | RB001 | 타이어고무 |
+| **전자부품** | 2개 | BT001, SC001 | 리튬배터리, 반도체칩 |
+| **화학원료** | 2개 | PA001, AD001 | 자동차도료, 구조용접착제 |
+| **유리** | 1개 | GL001 | 강화유리 |
+| **텍스타일** | 1개 | TX001 | 시트원단 |
+
 
 ## API 문서
 
@@ -450,7 +590,27 @@ BigDecimal totalEmission = activityAmount.multiply(emissionFactor);
 | GET | `/api/v1/scope/aggregation/scope3-combined/{year}/{month}` | **Scope 3 월별 통합 집계** (특수+일반) | 필요 | Scope3CombinedEmissionResponse |
 | GET | `/api/v1/scope/aggregation/scope3-combined/{year}` | **Scope 3 연별 통합 집계** (특수+일반) | 필요 | Scope3CombinedEmissionResponse |
 
-#### 최신 추가 기능 (Version 1.0)
+#### 자재코드 할당 관리 API
+
+| HTTP Method | Endpoint | 설명 | 인증 | 응답 |
+|-------------|----------|------|------|------|
+| **조회 API** |
+| GET | `/api/v1/scope/material-assignments/partner/{partnerId}` | **협력사별 할당된 자재코드 조회** | 필요 | List\<MaterialAssignmentResponse\> |
+| GET | `/api/v1/scope/material-assignments/headquarters` | **본사별 모든 자재코드 할당 조회** | 필요 | List\<MaterialAssignmentResponse\> |
+| GET | `/api/v1/scope/material-assignments/my-materials` | **내 자재 데이터 조회** (본사: 더미데이터, 협력사: 할당데이터) | 필요 | List\<MaterialAssignmentResponse\> |
+| **생성 API** |
+| POST | `/api/v1/scope/material-assignments` | **자재코드 할당 생성** | 필요 | MaterialAssignmentResponse |
+| POST | `/api/v1/scope/material-assignments/batch` | **자재코드 일괄 할당** | 필요 | List\<MaterialAssignmentResponse\> |
+| **수정/삭제 API** |
+| PUT | `/api/v1/scope/material-assignments/{assignmentId}` | **자재코드 할당 수정** | 필요 | MaterialAssignmentResponse |
+| GET | `/api/v1/scope/material-assignments/{assignmentId}/can-delete` | **자재코드 할당 삭제 가능 여부 확인** | 필요 | Map\<String, Object\> |
+| DELETE | `/api/v1/scope/material-assignments/{assignmentId}` | **자재코드 할당 삭제** | 필요 | Success Message |
+| **매핑 관리 API** |
+| GET | `/api/v1/scope/material-assignments/mappable` | **매핑 가능한 자재코드 할당 조회** | 필요 | List\<MaterialAssignmentResponse\> |
+| GET | `/api/v1/scope/material-assignments/{assignmentId}/mapping-status` | **자재코드 할당 매핑 상태 조회** | 필요 | Map\<String, Object\> |
+| GET | `/api/v1/scope/material-assignments/mapping-statistics` | **협력사 매핑 통계 조회** | 필요 | Map\<String, Object\> |
+
+#### 최신 추가 기능 (Version 1.5)
 
 | 기능 | 설명 | 기술적 구현 | 비즈니스 가치 |
 |------|------|-------------|----------------|
@@ -458,6 +618,9 @@ BigDecimal totalEmission = activityAmount.multiply(emissionFactor);
 | **Scope 3 특수 집계** | 복합 카테고리 집계 알고리즘 | Cat.1,2,4,5의 Scope간 교차 집계 | GHG 프로토콜 고급 요구사항 대응 |
 | **통합 배출량 시스템** | 특수+일반 카테고리 완전 통합 | `Scope3CombinedEmissionResponse` 설계 | 전사 탄소배출량 완전 가시성 |
 | **계층적 권한 집계** | TreePath 기반 데이터 격리 | Repository 레벨 권한 필터링 | 조직별 보안 데이터 관리 |
+| **자재코드 할당 시스템** | 협력사 간 자재코드 할당 및 관리 | MaterialAssignment 엔티티 + 11개 API | 공급망 탄소발자국 추적 |
+| **자재코드 매핑 시스템** | Scope 배출량과 자재코드 연동 | MaterialMapping 엔티티 + 권한 기반 매핑 | 제품별 정밀 배출량 계산 |
+| **더미 데이터 시스템** | 본사용 16개 자재 더미 데이터 | MaterialDataService + 자동차 제조업 특화 | 시스템 테스트 및 데모 지원 |
 
 ### Swagger UI
 
@@ -554,32 +717,6 @@ CREATE INDEX idx_scope_category ON scope_emission(scope_type, scope1_category_nu
 CREATE INDEX idx_product_code ON scope_emission(headquarters_id, company_product_code, reporting_year, reporting_month);
 ```
 
-## 성능 최적화
-
-### 데이터베이스 최적화
-
-- **인덱스 전략**: 조회 패턴에 최적화된 복합 인덱스
-- **파티셔닝**: 연도별 테이블 파티셔닝으로 대용량 데이터 처리
-- **집계 쿼리 최적화**: 월별/연별 집계를 위한 효율적인 쿼리
-
-### 메모리 최적화
-
-- **BigDecimal 사용**: 정밀한 배출량 계산을 위한 고정소수점 연산
-- **엔티티 캐싱**: 자주 조회되는 카테고리 정보 캐싱
-- **Connection Pool**: HikariCP 최적화 설정
-
-## 주요 특징
-
-- **확장성**: 새로운 Scope 카테고리 추가 용이한 설계
-- **정확성**: GHG 프로토콜 표준 준수 및 정밀한 배출량 계산
-- **추적성**: 제품별/카테고리별 탄소발자국 완전 추적
-- **보안성**: 조직별 완전 분리된 데이터 접근 제어
-- **성능**: 대용량 배출량 데이터 처리 최적화
-
----
-
-**기술적 성과 및 포트폴리오 하이라이트**:
-
 ### 핵심 구현 성과
 
 #### 1. **복합 집계 알고리즘 설계** 
@@ -590,7 +727,13 @@ CREATE INDEX idx_product_code ON scope_emission(headquarters_id, company_product
 #### 2. **GHG 프로토콜 완전 준수**
 - **27개 카테고리 체계**: Scope 1(10개) + Scope 2(2개) + Scope 3(15개) 완전 구현
 - **국제 표준 배출계수**: BigDecimal 기반 정밀 계산으로 tCO2eq 단위 정확도 보장
-- **제품별 탄소발자국**: LCA 연동을 위한 제품 코드 매핑 시스템
+- **자재코드 기반 탄소발자국**: 공급망 자재코드 할당 및 매핑을 통한 제품별 배출량 추적
+
+#### 5. **자재코드 관리 시스템 구현**
+- **계층적 할당 시스템**: 본사→1차→2차→3차 협력사 자재코드 할당 체계 구현
+- **중복 검증 로직**: MaterialAssignment 테이블 기반 자재코드 중복 할당 방지
+- **TreePath 기반 권한 관리**: `/1/L1-001/L2-003/` 형식의 계층적 접근 제어 시스템
+- **매핑 상태 추적**: isMapped 플래그를 통한 자재코드 사용 현황 실시간 추적
 
 #### 3. **마이크로서비스 아키텍처**
 - **Spring Boot 3.5.0**: 최신 프레임워크 기반 RESTful API 설계
@@ -610,17 +753,10 @@ CREATE INDEX idx_product_code ON scope_emission(headquarters_id, company_product
 | **월별 정밀 조회** | Repository 레벨 필터링 최적화 | 요청 월만 정확히 반환하는 쿼리 설계 |
 | **대용량 데이터 처리** | 인덱스 전략 및 페이징 최적화 | 연도별 파티셔닝으로 성능 향상 |
 | **권한 기반 집계** | TreePath 알고리즘 활용 | 조직 계층별 완전 데이터 격리 달성 |
-
-### 성능 및 확장성
-
-- **처리 성능**: 월 100만건 배출량 데이터 실시간 집계 가능
-- **동시 사용자**: 1000+ 동시 접속 지원 (Connection Pool 최적화)
-- **데이터 정확도**: BigDecimal 기반 소수점 12자리 정밀도 보장
-- **확장성**: 새로운 Scope 카테고리 추가 시 최소 코드 변경으로 대응
-
----
+| **계층적 자재코드 할당** | MaterialAssignment 엔티티 설계 | 본사→협력사 다단계 할당 체계 구현 |
+| **자재코드 중복 방지** | 복합 유니크 인덱스 + 비즈니스 로직 | materialCode + toPartnerId 중복 할당 완전 차단 |
+| **공급망 권한 관리** | TreePath 기반 계층적 검증 | 할당 받은 자재코드만 매핑 가능한 보안 체계 |
 
 
-
-**Scope Service Version 1.0** 
+**Scope Service Version 2** - 자재코드 관리 시스템 추가 
 

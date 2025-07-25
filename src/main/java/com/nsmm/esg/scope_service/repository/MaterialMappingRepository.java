@@ -1,6 +1,7 @@
 package com.nsmm.esg.scope_service.repository;
 
 import com.nsmm.esg.scope_service.entity.MaterialMapping;
+import com.nsmm.esg.scope_service.entity.MaterialAssignment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,49 +18,19 @@ import java.util.Optional;
  * - 협력사별 매핑 조회
  * - 매핑 체인 추적
  * - 하위 할당 관리
+ * - 계층별 활성 맵핑 조회
  */
 @Repository
 public interface MaterialMappingRepository extends JpaRepository<MaterialMapping, Long> {
 
-    /**
-     * 협력사별 활성 매핑 조회
-     */
-    @Query("SELECT m FROM MaterialMapping m WHERE m.partnerId = :partnerId AND m.isActive = true AND m.isDeleted = false")
-    List<MaterialMapping> findActiveByPartnerId(@Param("partnerId") Long partnerId);
+  /**
+   * 특정 MaterialAssignment와 연결된 MaterialMapping 개수 조회
+   *
+   * @param materialAssignment MaterialAssignment 엔티티
+   * @return 연결된 매핑 개수
+   */
+  @Query("SELECT COUNT(mm) FROM MaterialMapping mm WHERE mm.materialAssignment = :materialAssignment")
+  long countByMaterialAssignment(@Param("materialAssignment") MaterialAssignment materialAssignment);
 
-    /**
-     * 본사별 모든 매핑 조회 (계층 구조 포함)
-     */
-    @Query("SELECT m FROM MaterialMapping m WHERE m.headquartersId = :headquartersId AND m.isActive = true AND m.isDeleted = false ORDER BY m.partnerLevel, m.partnerId")
-    List<MaterialMapping> findByHeadquartersId(@Param("headquartersId") Long headquartersId);
 
-    /**
-     * 상위 자재코드로 매핑 조회
-     */
-    @Query("SELECT m FROM MaterialMapping m WHERE m.upstreamMaterialCode = :upstreamCode AND m.isActive = true AND m.isDeleted = false")
-    List<MaterialMapping> findByUpstreamMaterialCode(@Param("upstreamCode") String upstreamCode);
-
-    /**
-     * 내부 자재코드로 매핑 조회
-     */
-    @Query("SELECT m FROM MaterialMapping m WHERE m.internalMaterialCode = :internalCode AND m.partnerId = :partnerId AND m.isActive = true AND m.isDeleted = false")
-    Optional<MaterialMapping> findByInternalMaterialCodeAndPartnerId(@Param("internalCode") String internalCode, @Param("partnerId") Long partnerId);
-
-    /**
-     * ScopeEmission ID로 매핑 조회
-     */
-    @Query("SELECT m FROM MaterialMapping m WHERE m.scopeEmissionId = :scopeEmissionId")
-    Optional<MaterialMapping> findByScopeEmissionId(@Param("scopeEmissionId") Long scopeEmissionId);
-
-    /**
-     * 매핑 체인 추적 (본사 -> N차 협력사)
-     */
-    @Query("SELECT m FROM MaterialMapping m WHERE m.headquartersId = :headquartersId AND (m.upstreamMaterialCode = :materialCode OR m.internalMaterialCode = :materialCode) AND m.isActive = true AND m.isDeleted = false ORDER BY m.partnerLevel")
-    List<MaterialMapping> findMappingChain(@Param("headquartersId") Long headquartersId, @Param("materialCode") String materialCode);
-
-    /**
-     * 하위 할당이 있는 매핑 조회
-     */
-    @Query("SELECT m FROM MaterialMapping m WHERE m.hasDownstreamAssignment = true AND m.partnerId = :partnerId AND m.isActive = true AND m.isDeleted = false")
-    List<MaterialMapping> findWithDownstreamAssignments(@Param("partnerId") Long partnerId);
 }

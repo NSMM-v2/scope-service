@@ -14,8 +14,6 @@ import java.time.LocalDateTime;
  * 특징: 모든 API 응답의 표준 형식 제공
  * 용도: 성공/실패 응답 통일, 에러 코드 관리
  * 
- * @author ESG Project Team
- * @version 1.0
  */
 @Getter
 @Setter

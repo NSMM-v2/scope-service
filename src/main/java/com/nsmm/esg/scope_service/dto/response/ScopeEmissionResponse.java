@@ -3,6 +3,7 @@ package com.nsmm.esg.scope_service.dto.response;
 import com.nsmm.esg.scope_service.enums.InputType;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.entity.ScopeEmission;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -60,21 +61,34 @@ public class ScopeEmissionResponse {
   @Schema(description = "Scope 3 카테고리명", example = "사업장 관련 활동")
   private String scope3CategoryName; // 카테고리명
 
+
   // ========================================================================
-  // 제품 코드 매핑 정보 (Product Code Mapping)
+  // 자재코드 매핑 정보 (Material Code Mapping)
   // ========================================================================
 
-  @Schema(description = "회사별 제품 코드", example = "L01")
-  private String companyProductCode; // 각 회사별 제품 코드
+  @Schema(description = "자재 할당 정보 ID", example = "1")
+  private Long materialAssignmentId; // 자재 할당 정보 연결용 ID
 
-  @Schema(description = "제품명", example = "휠")
-  private String productName; // 제품명
+  @Schema(description = "자재 매핑 정보 ID", example = "1")
+  private Long materialMappingId; // 자재 매핑 정보 연결용 ID
+
+  @Schema(description = "상위에서 할당받은 자재코드", example = "A100")
+  private String upstreamMaterialCode; // 상위에서 할당받은 자재코드 (A100, FE100...) - 최상위인 경우 null
+
+  @Schema(description = "내부 자재코드", example = "B100")
+  private String internalMaterialCode; // 내부 자재코드 (B100, FE200...)
+
+  @Schema(description = "자재명", example = "철강 부품")
+  private String materialName; // 자재명
+
+  @Schema(description = "상위 협력사 ID", example = "1")
+  private Long upstreamPartnerId; // 상위 협력사 ID (null이면 본사)
 
   // ========================================================================
   // 프론트엔드 입력 데이터 (Frontend Input Data)
   // ========================================================================
 
-  @Schema(description = "대분류", example = "구매한 제품 및 서비스")
+  @Schema(description = "대분류", example = "구매한 자재 및 서비스")
   private String majorCategory; // 대분류
 
   @Schema(description = "구분", example = "원재료")
@@ -102,8 +116,8 @@ public class ScopeEmissionResponse {
   @Schema(description = "입력 타입", example = "MANUAL")
   private InputType inputType;
 
-  @Schema(description = "제품 코드 매핑 여부", example = "false")
-  private Boolean hasProductMapping;
+  @Schema(description = "자재 코드 매핑 여부", example = "false")
+  private Boolean hasMaterialMapping;
 
   @Schema(description = "공장 설비 활성화 여부", example = "false")
   private Boolean factoryEnabled;
@@ -140,8 +154,12 @@ public class ScopeEmissionResponse {
         .scope2CategoryName(emission.getScope2CategoryName())
         .scope3CategoryNumber(emission.getScope3CategoryNumber())
         .scope3CategoryName(emission.getScope3CategoryName())
-        .companyProductCode(emission.getInternalMaterialCode()) // 자재코드 매핑에서 내부 코드 가져오기
-        .productName(emission.getMaterialName()) // 자재코드 매핑에서 자재명 가져오기
+        .materialAssignmentId(emission.getMaterialAssignment() != null ? emission.getMaterialAssignment().getId() : null) // 자재 할당 정보 ID
+        .materialMappingId(emission.getMaterialMapping() != null ? emission.getMaterialMapping().getId() : null) // 자재 매핑 정보 ID
+        .upstreamMaterialCode(emission.getUpstreamMaterialCode()) // 상위에서 할당받은 자재코드
+        .internalMaterialCode(emission.getInternalMaterialCode()) // 내부 자재코드
+            .materialName(emission.getMaterialName()) // 내부 자재코드
+            .upstreamPartnerId(emission.getMaterialMapping() != null ? emission.getMaterialMapping().getUpstreamPartnerId() : null) // 상위 협력사 ID
         .majorCategory(emission.getMajorCategory())
         .subcategory(emission.getSubcategory())
         .rawMaterial(emission.getRawMaterial())
@@ -150,7 +168,7 @@ public class ScopeEmissionResponse {
         .emissionFactor(emission.getEmissionFactor())
         .totalEmission(emission.getTotalEmission())
         .inputType(emission.getInputType())
-        .hasProductMapping(emission.getHasProductMapping())
+        .hasMaterialMapping(emission.getHasMaterialMapping())
         .factoryEnabled(emission.getFactoryEnabled())
         .reportingYear(emission.getReportingYear())
         .reportingMonth(emission.getReportingMonth())
@@ -158,4 +176,5 @@ public class ScopeEmissionResponse {
         .updatedAt(emission.getUpdatedAt())
         .build();
   }
+
 }

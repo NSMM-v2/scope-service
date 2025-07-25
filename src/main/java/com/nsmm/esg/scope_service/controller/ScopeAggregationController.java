@@ -3,17 +3,15 @@ package com.nsmm.esg.scope_service.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.nsmm.esg.scope_service.dto.ApiResponse;
 import com.nsmm.esg.scope_service.dto.response.MonthlyEmissionSummary;
 import com.nsmm.esg.scope_service.dto.response.CategoryYearlyEmission;
 import com.nsmm.esg.scope_service.dto.response.CategoryMonthlyEmission;
 import com.nsmm.esg.scope_service.dto.response.Scope3CombinedEmissionResponse;
+import com.nsmm.esg.scope_service.dto.response.MappedMaterialCodeResponse;
+import com.nsmm.esg.scope_service.dto.response.MappedMaterialMonthlyTotalResponse;
 import com.nsmm.esg.scope_service.enums.ScopeType;
 import com.nsmm.esg.scope_service.service.ScopeAggregationService;
 import com.nsmm.esg.scope_service.service.Scope3SpecialAggregationService;
@@ -339,6 +337,114 @@ public class ScopeAggregationController {
       log.error("Scope 3 연별 통합 집계 중 오류 발생: {}", e.getMessage(), e);
       return ResponseEntity.internalServerError()
           .body(ApiResponse.error("Scope 3 연별 통합 집계 처리 중 오류가 발생했습니다", "SCOPE3_COMBINED_YEARLY_AGGREGATION_ERROR"));
+    }
+  }
+  //--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+  /**
+   * 맵핑된 자재코드 대시보드 조회 (직속 하위 레벨 기반)
+   * 각 조직은 직속 하위 레벨이 맵핑한 자재코드만 조회
+   * 해당 연도의 1-12월별 Scope 1+2 총합을 반환
+   */
+  @Operation(summary = "맵핑된 자재코드 대시보드 조회", description = "각 조직은 직속 하위 레벨이 맵핑한 자재코드만 조회합니다. " +
+      "본사는 1차사가 맵핑한 자재만, 1차사는 2차사가 맵핑한 자재만 조회됩니다. " +
+      "해당 연도의 1-12월별 Scope 1+2 총합을 반환합니다.")
+  @GetMapping("/mapped-materials/dashboard/{year}")
+  public ResponseEntity<ApiResponse<MappedMaterialMonthlyTotalResponse>> getMappedMaterialDashboard(
+      @Parameter(description = "보고 연도", example = "2024") @PathVariable Integer year,
+      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
+      @Parameter(description = "사용자 타입", example = "HEADQUARTERS") @RequestHeader("X-USER-TYPE") String userType,
+      @Parameter(description = "협력사 ID (협력사인 경우)", example = "2") @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @Parameter(description = "계층 레벨", example = "1") @RequestHeader(value = "X-LEVEL", required = false) String level,
+      @Parameter(description = "트리 경로", example = "/1/L1-001/") @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
+
+    try {
+      log.info("맵핑된 자재코드 대시보드 요청 - 연도: {}, 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 레벨: {}",
+          year, headquartersId, userType, partnerId, level);
+
+      // 레벨 정보 파싱
+      Integer userLevel = null;
+      if (level != null) {
+        userLevel = Integer.parseInt(level);
+      } else if ("HEADQUARTERS".equals(userType)) {
+        userLevel = 0; // 본사는 레벨 0
+      }
+
+      // 월별 총합 조회
+      MappedMaterialMonthlyTotalResponse response = scopeAggregationService
+          .getMappedMaterialMonthlyTotals(
+              year,
+              Long.parseLong(headquartersId),
+              userType,
+              partnerId != null ? Long.parseLong(partnerId) : null,
+              userLevel,
+              treePath);
+
+      String message = String.format("맵핑된 자재코드 월별 총합이 성공적으로 조회되었습니다 (%d년)", year);
+
+      log.info("맵핑된 자재코드 월별 총합 조회 완료 - 월별 데이터 수: {}", response.getMonthlyTotals());
+
+      return ResponseEntity.ok(ApiResponse.success(response, message));
+
+    } catch (NumberFormatException e) {
+      log.warn("잘못된 숫자 형식 - 본사ID: {}, 협력사ID: {}, 레벨: {}", headquartersId, partnerId, level);
+      return ResponseEntity.badRequest()
+          .body(ApiResponse.error("ID 또는 레벨은 숫자여야 합니다", "INVALID_NUMERIC_FORMAT"));
+    } catch (Exception e) {
+      log.error("맵핑된 자재코드 대시보드 조회 중 오류 발생: {}", e.getMessage(), e);
+      return ResponseEntity.internalServerError()
+          .body(ApiResponse.error("맵핑된 자재코드 대시보드 조회 중 오류가 발생했습니다", "MAPPED_MATERIAL_DASHBOARD_ERROR"));
+    }
+  }
+
+  /**
+   * 맵핑된 자재코드 목록 조회
+   * MaterialAssignment 테이블에서 isMapped = true인 자재 정보만 반환 (배출량 집계 없음)
+   */
+  @Operation(summary = "맵핑된 자재코드 목록 조회", description = "MaterialAssignment 테이블에서 isMapped = true인 자재 정보를 조회합니다. " +
+      "자재코드, 자재명, 자재설명을 포함하며, 권한에 따라 접근 가능한 자재만 반환됩니다.")
+  @GetMapping("/mapped-materials/codes")
+  public ResponseEntity<ApiResponse<List<MappedMaterialCodeResponse>>> getMappedMaterialCodeList(
+      @Parameter(description = "본사 ID", example = "1") @RequestHeader("X-HEADQUARTERS-ID") String headquartersId,
+      @Parameter(description = "사용자 타입", example = "HEADQUARTERS") @RequestHeader("X-USER-TYPE") String userType,
+      @Parameter(description = "협력사 ID (협력사인 경우)", example = "2") @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
+      @Parameter(description = "사용자 레벨", example = "1") @RequestHeader(value = "X-LEVEL", required = false) String level) {
+
+    try {
+      log.info("맵핑된 자재코드 목록 조회 요청 - 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 레벨: {}",
+          headquartersId, userType, partnerId, level);
+
+      // 레벨 정보 파싱
+      Integer userLevel = null;
+      if (level != null && !level.isEmpty()) {
+        userLevel = Integer.parseInt(level);
+      }
+
+      List<Object[]> queryResults = scopeAggregationService
+          .getMappedMaterialCodeList(
+              Long.parseLong(headquartersId),
+              userType,
+              partnerId != null ? Long.parseLong(partnerId) : null,
+              userLevel);
+
+      // Object[] 결과를 DTO로 변환
+      List<MappedMaterialCodeResponse> materialCodes = queryResults.stream()
+          .map(MappedMaterialCodeResponse::fromQueryResult)
+          .toList();
+
+      log.info("맵핑된 자재코드 목록 조회 완료 - 자재코드 수: {}", materialCodes.size());
+
+      return ResponseEntity.ok(ApiResponse.success(materialCodes, 
+          String.format("맵핑된 자재코드 목록이 성공적으로 조회되었습니다 (%d개)", materialCodes.size())));
+
+    } catch (NumberFormatException e) {
+      log.warn("잘못된 숫자 형식 - 본사ID: {}, 협력사ID: {}", headquartersId, partnerId);
+      return ResponseEntity.badRequest()
+          .body(ApiResponse.error("ID는 숫자여야 합니다", "INVALID_NUMERIC_FORMAT"));
+    } catch (Exception e) {
+      log.error("맵핑된 자재코드 목록 조회 중 오류 발생: {}", e.getMessage(), e);
+      return ResponseEntity.internalServerError()
+          .body(ApiResponse.error("맵핑된 자재코드 목록 조회 중 오류가 발생했습니다", "MAPPED_MATERIAL_CODES_ERROR"));
     }
   }
   //--------------------------------------------------------------------------------------------------------------------------------------------------------------------

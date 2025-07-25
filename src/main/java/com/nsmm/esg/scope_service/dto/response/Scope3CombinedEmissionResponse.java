@@ -5,14 +5,14 @@ import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
  * Scope 3 통합 배출량 응답 DTO
  * 특수집계배출량 + 일반 Scope3 카테고리별 배출량의 합계를 제공
  */
-@Data
+@Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

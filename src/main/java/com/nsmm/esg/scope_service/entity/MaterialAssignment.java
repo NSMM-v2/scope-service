@@ -9,7 +9,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,10 +45,10 @@ public class MaterialAssignment {
     private Long headquartersId; // 본사 ID
 
     @Column(name = "from_partner_id", length = 36)
-    private String fromPartnerId; // 할당하는 협력사 UUID (null이면 본사)
+    private String fromPartnerId; // 할당하는 협력사 ID (비즈니스 ID)
 
     @Column(name = "to_partner_id", nullable = false, length = 36)
-    private String toPartnerId; // 할당받는 협력사 UUID
+    private String toPartnerId; // 할당받는 협력사 ID (비즈니스 ID)
 
     @Column(name = "from_level")
     private Integer fromLevel; // 할당하는 협력사 레벨 (0: 본사, 1: 1차사...)
@@ -119,6 +118,15 @@ public class MaterialAssignment {
     }
 
     /**
+     * 매핑 해제 상태로 변경
+     */
+    public MaterialAssignment markAsUnmapped() {
+        return this.toBuilder()
+                .isMapped(false)
+                .build();
+    }
+
+    /**
      * 수정 가능 여부 확인
      */
     public boolean isModifiable() {
@@ -147,76 +155,27 @@ public class MaterialAssignment {
         return materialMappings != null ? materialMappings.size() : 0;
     }
     
-    /**
-     * 활성 매핑 개수 조회
-     */
-    public long getActiveMappingCount() {
-        return materialMappings != null ? 
-            materialMappings.stream().filter(mapping -> mapping.getIsActive() && !mapping.getIsDeleted()).count() : 0;
-    }
-    
+
     /**
      * 매핑 추가
+     * 매핑이 추가되면 자동으로 매핑 상태로 변경됩니다.
+     * 
+     * @param mapping 추가할 매핑
+     * @return 매핑이 추가되고 상태가 업데이트된 새로운 MaterialAssignment
      */
-    public void addMapping(MaterialMapping mapping) {
-        if (materialMappings == null) {
-            materialMappings = new ArrayList<>();
-        }
-        materialMappings.add(mapping);
-        // 매핑이 생성되면 자동으로 매핑됨 상태로 변경
-        if (!this.isMapped) {
-            this.isMapped = true;
-        }
-    }
-    
-    /**
-     * 배출량 데이터 추가
-     */
-    public void addScopeEmission(ScopeEmission emission) {
-        if (scopeEmissions == null) {
-            scopeEmissions = new ArrayList<>();
-        }
-        scopeEmissions.add(emission);
-    }
-    
-    /**
-     * 총 배출량 계산
-     */
-    public BigDecimal getTotalEmission() {
-        return scopeEmissions != null ? 
-            scopeEmissions.stream()
-                .filter(emission -> emission.getTotalEmission() != null)
-                .map(ScopeEmission::getTotalEmission)
-                .reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.ZERO;
-    }
-    
-    /**
-     * 데이터 무결성 검증
-     */
-    public boolean validateIntegrity() {
-        // 활성 상태이지만 매핑이 없는 경우 검증
-        if (isActive && !isMapped && getMappingCount() > 0) {
-            return false; // 매핑이 있는데 플래그가 false
-        }
+    public MaterialAssignment addMapping(MaterialMapping mapping) {
+        List<MaterialMapping> updatedMappings = new ArrayList<>(materialMappings != null ? materialMappings : new ArrayList<>());
+        updatedMappings.add(mapping);
         
-        // 매핑됨으로 표시되었지만 실제 매핑이 없는 경우
-        if (isMapped && getActiveMappingCount() == 0) {
-            return false; // 플래그는 true인데 활성 매핑이 없음
-        }
-        
-        return true;
+        return this.toBuilder()
+                .materialMappings(updatedMappings)
+                .isMapped(true) // 매핑이 생성되면 자동으로 매핑됨 상태로 변경
+                .build();
     }
+
+
+
     
-    /**
-     * 할당 요약 정보
-     */
-    public String getSummaryInfo() {
-        return String.format(
-            "자재코드: %s | 대상: %s차사 | 매핑수: %d | 총배출량: %s tCO2eq", 
-            materialCode, 
-            toLevel,
-            getActiveMappingCount(),
-            getTotalEmission().toString()
-        );
-    }
+
+
 }

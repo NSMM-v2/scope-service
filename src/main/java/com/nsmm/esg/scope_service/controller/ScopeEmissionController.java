@@ -23,7 +23,7 @@ import java.util.List;
  * 특징:
  * - Scope 1, 2, 3 통합 관리
  * - JWT 헤더 기반 인증
- * - 제품 코드 매핑 지원 (Scope 1, 2는 선택적)
+ * - 자재 코드 매핑 지원 (Scope 1, 2는 선택적)
  * - 기존 Scope 3 API 호환성 유지
  * 
  * 게이트웨이 헤더:
@@ -35,8 +35,6 @@ import java.util.List;
  * - X-TREE-PATH: 계층 경로
  * - X-LEVEL: 계층 레벨
  * 
- * @author ESG Project Team
- * @version 2.0
  */
 @Tag(name = "ScopeEmission", description = "통합 Scope 배출량 관리 API (Scope 1, 2, 3)")
 @Slf4j
@@ -62,7 +60,7 @@ public class ScopeEmissionController {
   // ========================================================================
 
   // 통합 Scope 배출량 데이터 생성
-  @Operation(summary = "Scope 배출량 데이터 생성", description = "Scope 1, 2, 3 배출량 데이터를 생성합니다. 제품 코드 매핑은 Scope 1, 2만 가능합니다.")
+  @Operation(summary = "Scope 배출량 데이터 생성", description = "Scope 1, 2, 3 배출량 데이터를 생성합니다. 자재 코드 매핑은 Scope 1, 2만 가능합니다.")
   @PostMapping("/emissions")
   public ResponseEntity<ApiResponse<ScopeEmissionResponse>> createScopeEmission(
       @Valid @RequestBody ScopeEmissionRequest request,
@@ -71,14 +69,12 @@ public class ScopeEmissionController {
       @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
-    log.info("Scope {} 배출량 생성 요청: categoryNumber={}, inputType={}, hasProductMapping={}",
+    log.info("Scope {} 배출량 생성 요청: categoryNumber={}, inputType={}, hasMaterialMapping={}",
         request.getScopeType(), request.getActiveCategoryNumber(),
-        request.getInputType(), request.getHasProductMapping());
+        request.getInputType(), request.getHasMaterialMapping());
     logHeaders("Scope 배출량 생성", userType, headquartersId, partnerId, treePath);
 
     try {
-      // 제품 코드 유효성 검증
-      // validateProductCodeForScope(request);
 
       ScopeEmissionResponse response = scopeEmissionService.createScopeEmission(
           request, userType, headquartersId, partnerId, treePath);
@@ -171,7 +167,7 @@ public class ScopeEmissionController {
   // ========================================================================
 
   // Scope 배출량 데이터 수정
-  @Operation(summary = "Scope 배출량 데이터 수정", description = "ID로 Scope 배출량 데이터를 수정합니다. 제품 코드 매핑은 Scope 1, 2만 가능합니다.")
+  @Operation(summary = "Scope 배출량 데이터 수정", description = "ID로 Scope 배출량 데이터를 수정합니다. 자재 코드 매핑은 Scope 1, 2만 가능합니다.")
   @PutMapping("/emissions/{id}")
   public ResponseEntity<ApiResponse<ScopeEmissionResponse>> updateScopeEmission(
       @PathVariable Long id,
@@ -181,15 +177,15 @@ public class ScopeEmissionController {
       @RequestHeader(value = "X-PARTNER-ID", required = false) String partnerId,
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
-    log.info("Scope 배출량 업데이트 요청: id={}, userType={}, inputType={}, hasProductMapping={}",
-        id, userType, request.getInputType(), request.getHasProductMapping());
+    log.info("Scope 배출량 업데이트 요청: id={}, userType={}, inputType={}, hasMaterialMapping={}",
+        id, userType, request.getInputType(), request.getHasMaterialMapping());
     logHeaders("Scope 배출량 업데이트", userType, headquartersId, partnerId, treePath);
 
     try {
-      // 제품 코드 매핑 로깅
-      if (Boolean.TRUE.equals(request.getHasProductMapping())) {
-        log.info("제품 코드 매핑 정보 업데이트: productCode={}, productName={}",
-            request.getCompanyProductCode(), request.getProductName());
+      // 자재 코드 매핑 로깅
+      if (Boolean.TRUE.equals(request.getHasMaterialMapping())) {
+        log.info("자재 코드 매핑 정보 업데이트: MaterialCode={}, MaterialName={}",
+            request.getMaterialName(), request.getMaterialName());
       }
 
       ScopeEmissionResponse response = scopeEmissionService.updateScopeEmission(
@@ -235,7 +231,7 @@ public class ScopeEmissionController {
     log.info("Scope 배출량 삭제 요청: id={}, userType={}", id, userType);
     logHeaders("Scope 배출량 삭제", userType, headquartersId, partnerId, treePath);
 
-    try {
+  try {
       scopeEmissionService.deleteScopeEmission(id, userType, headquartersId, partnerId, treePath);
       return ResponseEntity.ok(ApiResponse.success("삭제 완료", "Scope 배출량 데이터를 삭제했습니다."));
     } catch (IllegalArgumentException e) {
@@ -256,4 +252,5 @@ public class ScopeEmissionController {
           .body(ApiResponse.error("서버 내부 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
     }
   }
+
 }

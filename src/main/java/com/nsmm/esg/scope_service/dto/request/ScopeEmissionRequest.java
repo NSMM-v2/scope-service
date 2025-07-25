@@ -18,7 +18,7 @@ import java.math.BigDecimal;
  * 특징:
  * - Scope 1, 2, 3 통합 지원
  * - 프론트엔드 폼 구조와 1:1 매핑
- * - 제품 코드 매핑 지원
+ * - 자재 코드 매핑 지원
  * - 카테고리별 유효성 검증
  */
 @Getter
@@ -53,22 +53,35 @@ public class ScopeEmissionRequest {
   private Integer scope3CategoryNumber; // 1-15 (list1-15)
 
   // ========================================================================
-  // 제품 코드 매핑 정보 (Product Code Mapping)
+  // 자재코드 매핑 정보 (Material Code Mapping)
   // ========================================================================
 
-  @Schema(description = "회사별 제품 코드", example = "L01")
-  @Size(max = 50, message = "제품 코드는 50자 이하여야 합니다")
-  private String companyProductCode; // 각 회사별 제품 코드
+  @Schema(description = "자재 할당 정보 ID", example = "1")
+  private Long materialAssignmentId; // 자재 할당 정보 연결용 ID
 
-  @Schema(description = "제품명", example = "휠")
-  @Size(max = 100, message = "제품명은 100자 이하여야 합니다")
-  private String productName; // 제품명
+  @Schema(description = "자재 매핑 정보 ID", example = "1")
+  private Long materialMappingId; // 자재 매핑 정보 연결용 ID
+
+  @Schema(description = "상위에서 할당받은 자재코드", example = "A100")
+  @Size(max = 50, message = "상위 자재코드는 50자 이하여야 합니다")
+  private String upstreamMaterialCode; // 상위에서 할당받은 자재코드 (A100, FE100...) - 최상위인 경우 null
+
+  @Schema(description = "내부 자재코드", example = "B100")
+  @Size(max = 50, message = "내부 자재코드는 50자 이하여야 합니다")
+  private String internalMaterialCode; // 내부 자재코드 (B100, FE200...)
+
+  @Schema(description = "자재명", example = "철강 부품")
+  @Size(max = 200, message = "자재명은 200자 이하여야 합니다")
+  private String materialName; // 자재명
+
+  @Schema(description = "상위 협력사 ID", example = "1")
+  private Long upstreamPartnerId; // 상위 협력사 ID (null이면 본사)
 
   // ========================================================================
   // 프론트엔드 입력 데이터 (Frontend Input Data)
   // ========================================================================
 
-  @Schema(description = "대분류", example = "구매한 제품 및 서비스")
+  @Schema(description = "대분류", example = "구매한 자재 및 서비스")
   @NotBlank(message = "대분류는 필수입니다")
   @Size(max = 100, message = "대분류는 100자 이하여야 합니다")
   private String majorCategory; // 대분류
@@ -126,10 +139,10 @@ public class ScopeEmissionRequest {
   @Builder.Default
   private InputType inputType = InputType.MANUAL;
 
-  @Schema(description = "제품 코드 매핑 여부", example = "false")
-  @NotNull(message = "제품 코드 매핑 여부는 필수입니다")
+  @Schema(description = "자재 코드 매핑 여부", example = "false")
+  @NotNull(message = "자재 코드 매핑 여부는 필수입니다")
   @Builder.Default
-  private Boolean hasProductMapping = false;
+  private Boolean hasMaterialMapping = false;
 
   @Schema(description = "공장 설비 활성화 여부", example = "false")
   @NotNull(message = "공장 설비 활성화 여부는 필수입니다")
