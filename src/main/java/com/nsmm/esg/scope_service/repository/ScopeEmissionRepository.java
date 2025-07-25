@@ -594,20 +594,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                 @Param("year") Integer year,
                 @Param("month") Integer month);
 
-        // 특정 레벨의 맵핑된 자재코드 목록 조회 (배출량 집계 제외, upstreamMaterialCode 기준 중복 제거)
-        @Query("SELECT MIN(mm.internalMaterialCode), " +
-               "MIN(mm.materialName), " +
-               "mm.upstreamMaterialCode " +
-               "FROM ScopeEmission s " +
-               "JOIN s.materialMapping mm " +
-               "WHERE s.headquartersId = :headquartersId " +
-               "AND mm.partnerLevel = :targetLevel " +
-               "AND s.hasMaterialMapping = true " +
-               "AND s.materialMapping IS NOT NULL " +
-               "GROUP BY mm.upstreamMaterialCode " +
-               "ORDER BY mm.upstreamMaterialCode")
-        List<Object[]> findDistinctMappedMaterialCodesByLevel(
-                @Param("headquartersId") Long headquartersId,
-                @Param("targetLevel") Integer targetLevel);
+
 
 }

@@ -340,14 +340,7 @@ public class ScopeEmissionService {
   // 유효성 검증 메서드
   // ============================================================================
 
-  /**
-   * 사용자 권한 검증
-   *
-   * @param userType       사용자 타입
-   * @param headquartersId 본사 ID
-   * @param partnerId      협력사 ID
-   * @param treePath       계층 경로
-   */
+ // 사용자 권한 검증
   private void validateUserPermissions(String userType, String headquartersId, String partnerId, String treePath) {
     if (userType == null) {
       throw new IllegalArgumentException("사용자 타입이 필요합니다");
