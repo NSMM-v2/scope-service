@@ -45,6 +45,19 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         @Param("year") Integer year,
                         @Param("month") Integer month);
 
+        // 본사 직접 입력 데이터만 ScopeType/연/월별 총 배출량 합계
+        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.partnerId IS NULL " +
+                        "AND s.scopeType = :scopeType " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        BigDecimal sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquartersOnly(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("scopeType") ScopeType scopeType,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
 
         // Scope1 카테고리별 연간 배출량 집계 - 본사 직접 입력 데이터만
         @Query("SELECT s.scope1CategoryNumber, " +
@@ -315,6 +328,17 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                         "AND s.reportingYear = :year " +
                         "AND s.reportingMonth = :month")
         Long countEmissionsByHeadquartersAndYearAndMonth(
+                        @Param("headquartersId") Long headquartersId,
+                        @Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        // 본사 직접 입력 데이터만 연/월별 배출량 데이터 건수
+        @Query("SELECT COUNT(s) FROM ScopeEmission s " +
+                        "WHERE s.headquartersId = :headquartersId " +
+                        "AND s.partnerId IS NULL " +
+                        "AND s.reportingYear = :year " +
+                        "AND s.reportingMonth = :month")
+        Long countEmissionsByHeadquartersOnlyAndYearAndMonth(
                         @Param("headquartersId") Long headquartersId,
                         @Param("year") Integer year,
                         @Param("month") Integer month);
