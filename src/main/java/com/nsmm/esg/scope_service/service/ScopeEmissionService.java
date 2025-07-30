@@ -614,17 +614,18 @@ public class ScopeEmissionService {
     ScopeEmission updatedEmission = builder.build();
     
     if (alreadySaved) {
-      // MaterialMapping 비활성화 과정에서 이미 저장됨
-      log.debug("부분 업데이트 완료 (이미 저장됨): emissionId={}, hasMaterialMapping={}", 
+      // MaterialMapping 비활성화 과정에서 모든 변경사항이 이미 저장됨
+      log.debug("부분 업데이트 완료 (MaterialMapping 비활성화로 이미 저장됨): emissionId={}, hasMaterialMapping={}", 
                updatedEmission.getId(), updatedEmission.getHasMaterialMapping());
-      // DB에서 최신 상태를 다시 조회하여 반환
+      // DB에서 최신 상태를 다시 조회하여 반환 (MaterialMapping 관련 엔티티들이 정리된 최신 상태)
       return scopeEmissionRepository.findById(updatedEmission.getId())
           .orElse(updatedEmission);
     } else {
-      // 추가 저장 필요
-      log.debug("부분 업데이트 완료: emissionId={}, hasMaterialMapping={}", 
-               updatedEmission.getId(), updatedEmission.getHasMaterialMapping());
-      return updatedEmission;
+      // 추가 저장 필요 (MaterialMapping 활성화 또는 변경사항 없음)
+      ScopeEmission savedEmission = scopeEmissionRepository.save(updatedEmission);
+      log.debug("부분 업데이트 완료 (추가 저장됨): emissionId={}, hasMaterialMapping={}", 
+               savedEmission.getId(), savedEmission.getHasMaterialMapping());
+      return savedEmission;
     }
   }
   
@@ -640,6 +641,14 @@ public class ScopeEmissionService {
     // 공장 설비 활성화 여부 업데이트
     if (request.getFactoryEnabled() != null) {
       builder.factoryEnabled(request.getFactoryEnabled());
+    }
+
+    // 보고 기간 정보 업데이트
+    if (request.getReportingYear() != null) {
+      builder.reportingYear(request.getReportingYear());
+    }
+    if (request.getReportingMonth() != null) {
+      builder.reportingMonth(request.getReportingMonth());
     }
 
     // 기존 필드 업데이트
@@ -684,17 +693,26 @@ public class ScopeEmissionService {
     boolean newMappingState = Boolean.TRUE.equals(request.getHasMaterialMapping());
     boolean currentMappingState = Boolean.TRUE.equals(existingEmission.getHasMaterialMapping());
     
-    log.info("MaterialMapping 상태 변경: {} -> {}", currentMappingState, newMappingState);
+    log.info("MaterialMapping 상태 비교: 현재={}, 요청={}", currentMappingState, newMappingState);
     builder.hasMaterialMapping(newMappingState);
     
-    if (newMappingState) {
-      // hasMaterialMapping = true로 변경
-      handleMaterialMappingEnable(existingEmission, builder, request);
-      return false; // 추가 저장 필요 (새로운 매핑 정보를 builder에 설정했으므로)
+    // 실제 상태 변경이 있는 경우에만 처리
+    if (newMappingState != currentMappingState) {
+      log.info("MaterialMapping 상태 변경 감지: {} -> {}", currentMappingState, newMappingState);
+      
+      if (newMappingState) {
+        // false → true: MaterialMapping 활성화
+        handleMaterialMappingEnable(existingEmission, builder, request);
+        return false; // 추가 저장 필요 (새로운 매핑 정보를 builder에 설정했으므로)
+      } else {
+        // true → false: MaterialMapping 비활성화
+        handleMaterialMappingDisable(existingEmission, builder);
+        return true; // 저장 완료됨 (handleMaterialMappingDisable에서 saveAndFlush 실행됨)
+      }
     } else {
-      // hasMaterialMapping = false로 변경
-      handleMaterialMappingDisable(existingEmission, builder);
-      return true; // 저장 완료됨 (handleMaterialMappingDisable에서 saveAndFlush 실행됨)
+      // 상태 변경 없음: 기본 필드만 업데이트하면 됨
+      log.debug("MaterialMapping 상태 변경 없음 ({}), 기본 필드 업데이트만 수행", currentMappingState);
+      return false; // 추가 저장 필요
     }
   }
   
@@ -702,9 +720,11 @@ public class ScopeEmissionService {
    * MaterialMapping 활성화 처리 (개선된 버전)
    * 
    * 개선사항:
-   * 1. 기존 매핑이 있는 경우 ScopeEmission 참조 먼저 정리
-   * 2. saveAndFlush()로 중간 저장 강제 실행
-   * 3. Hibernate 엔티티 상태 충돌 방지
+   * 1. 자재코드 필드가 제공된 경우에만 새 매핑 생성
+   * 2. 자재코드 필드가 없으면 기존 매핑 유지
+   * 3. 기존 매핑이 있는 경우 ScopeEmission 참조 먼저 정리
+   * 4. saveAndFlush()로 중간 저장 강제 실행
+   * 5. Hibernate 엔티티 상태 충돌 방지
    */
   private void handleMaterialMappingEnable(ScopeEmission existingEmission, 
                                          ScopeEmission.ScopeEmissionBuilder builder, 
@@ -715,52 +735,72 @@ public class ScopeEmissionService {
       throw new IllegalArgumentException("Scope 3는 제품 코드 매핑을 설정할 수 없습니다");
     }
     
-    // 필수 필드 검증
-    validateMaterialMappingFields(request);
+    // 자재코드 매핑 필드가 제공되었는지 확인
+    boolean hasMaterialCodeFields = (request.getUpstreamMaterialCode() != null && !request.getUpstreamMaterialCode().trim().isEmpty()) ||
+                                   (request.getInternalMaterialCode() != null && !request.getInternalMaterialCode().trim().isEmpty()) ||
+                                   (request.getMaterialName() != null && !request.getMaterialName().trim().isEmpty());
     
-    // 기존 매핑 처리
-    MaterialMapping existingMapping = existingEmission.getMaterialMapping();
-    if (existingMapping != null) {
-      log.info("기존 MaterialMapping 교체 시작: mappingId={}", existingMapping.getId());
+    if (hasMaterialCodeFields) {
+      // 자재코드 필드가 제공된 경우: 필수 필드 검증 후 새 매핑 생성
+      validateMaterialMappingFields(request);
       
-      // 1단계: ScopeEmission의 MaterialMapping 참조를 먼저 null로 설정하고 저장
-      ScopeEmission tempEmission = existingEmission.toBuilder()
-          .materialMapping(null)
-          .materialAssignment(null)
-          .hasMaterialMapping(false)
-          .build();
+      // 기존 매핑 처리
+      MaterialMapping existingMapping = existingEmission.getMaterialMapping();
+      if (existingMapping != null) {
+        log.info("기존 MaterialMapping 교체 시작: mappingId={}", existingMapping.getId());
+        
+        // 1단계: ScopeEmission의 MaterialMapping 참조를 먼저 null로 설정하고 저장
+        ScopeEmission tempEmission = existingEmission.toBuilder()
+            .materialMapping(null)
+            .materialAssignment(null)
+            .hasMaterialMapping(false)
+            .build();
+        
+        ScopeEmission savedEmission = scopeEmissionRepository.saveAndFlush(tempEmission);
+        log.debug("기존 ScopeEmission 참조 정리 완료: emissionId={}", savedEmission.getId());
+        
+        // 2단계: 기존 MaterialAssignment 상태 복원
+        restoreOldMaterialAssignment(existingMapping);
+        
+        // 3단계: 기존 매핑 삭제
+        materialMappingRepository.delete(existingMapping);
+        log.info("기존 MaterialMapping 삭제 완료: mappingId={}", existingMapping.getId());
+      }
       
-      ScopeEmission savedEmission = scopeEmissionRepository.saveAndFlush(tempEmission);
-      log.debug("기존 ScopeEmission 참조 정리 완료: emissionId={}", savedEmission.getId());
+      // 새로운 매핑 생성
+      MaterialMapping newMapping = createNewMaterialMapping(existingEmission, request);
+      MaterialMapping savedMapping = materialMappingRepository.save(newMapping);
+      log.info("새 MaterialMapping 생성 완료: mappingId={}", savedMapping.getId());
       
-      // 2단계: 기존 MaterialAssignment 상태 복원
-      restoreOldMaterialAssignment(existingMapping);
+      // 새 MaterialAssignment 상태 업데이트
+      updateNewMaterialAssignment(savedMapping);
       
-      // 3단계: 기존 매핑 삭제
-      materialMappingRepository.delete(existingMapping);
-      log.info("기존 MaterialMapping 삭제 완료: mappingId={}", existingMapping.getId());
+      // builder에 설정
+      builder.materialMapping(savedMapping)
+             .materialAssignment(savedMapping.getMaterialAssignment());
+    } else {
+      // 자재코드 필드가 제공되지 않은 경우: 기존 매핑 유지
+      MaterialMapping existingMapping = existingEmission.getMaterialMapping();
+      if (existingMapping != null) {
+        log.info("자재코드 필드 미제공으로 기존 MaterialMapping 유지: mappingId={}", existingMapping.getId());
+        builder.materialMapping(existingMapping)
+               .materialAssignment(existingMapping.getMaterialAssignment());
+      } else {
+        log.warn("자재코드 매핑을 활성화하려 하지만 자재코드 필드와 기존 매핑이 모두 없습니다. emissionId={}", existingEmission.getId());
+        // 매핑 정보가 없으므로 hasMaterialMapping을 false로 설정
+        builder.hasMaterialMapping(false);
+      }
     }
-    
-    // 새로운 매핑 생성
-    MaterialMapping newMapping = createNewMaterialMapping(existingEmission, request);
-    MaterialMapping savedMapping = materialMappingRepository.save(newMapping);
-    log.info("새 MaterialMapping 생성 완료: mappingId={}", savedMapping.getId());
-    
-    // 새 MaterialAssignment 상태 업데이트
-    updateNewMaterialAssignment(savedMapping);
-    
-    // builder에 설정
-    builder.materialMapping(savedMapping)
-           .materialAssignment(savedMapping.getMaterialAssignment());
   }
   
   /**
    * MaterialMapping 비활성화 처리 (개선된 버전)
    * 
    * 개선사항:
-   * 1. ScopeEmission 참조를 먼저 null로 설정하고 저장
-   * 2. 그 다음에 MaterialMapping 삭제
-   * 3. Hibernate 엔티티 상태 충돌 방지
+   * 1. 기본 필드 변경사항을 포함하여 저장
+   * 2. ScopeEmission 참조를 먼저 null로 설정하고 저장
+   * 3. 그 다음에 MaterialMapping 삭제
+   * 4. Hibernate 엔티티 상태 충돌 방지
    */
   private void handleMaterialMappingDisable(ScopeEmission existingEmission, 
                                           ScopeEmission.ScopeEmissionBuilder builder) {
@@ -770,16 +810,16 @@ public class ScopeEmissionService {
       log.info("MaterialMapping 제거 시작: emissionId={}, mappingId={}", 
                existingEmission.getId(), existingMapping.getId());
       
-      // 1단계: ScopeEmission의 MaterialMapping 참조를 먼저 null로 설정
-      ScopeEmission tempEmission = existingEmission.toBuilder()
+      // 1단계: 모든 변경사항(기본 필드 + MaterialMapping 제거)을 포함한 엔티티 생성
+      ScopeEmission tempEmission = builder
           .materialMapping(null)
           .materialAssignment(null)
           .hasMaterialMapping(false)
           .build();
       
-      // 2단계: ScopeEmission을 먼저 저장하여 참조 관계 정리
+      // 2단계: 모든 변경사항이 포함된 ScopeEmission을 저장하여 참조 관계 정리
       ScopeEmission savedEmission = scopeEmissionRepository.saveAndFlush(tempEmission);
-      log.debug("ScopeEmission 참조 정리 완료: emissionId={}", savedEmission.getId());
+      log.debug("ScopeEmission 참조 정리 및 기본 필드 업데이트 완료: emissionId={}", savedEmission.getId());
       
       // 3단계: MaterialAssignment 상태 복원
       restoreOldMaterialAssignment(existingMapping);
@@ -788,25 +828,37 @@ public class ScopeEmissionService {
       materialMappingRepository.delete(existingMapping);
       log.info("MaterialMapping 삭제 완료: mappingId={}", existingMapping.getId());
       
-      // 5단계: builder에서 매핑 제거 (이미 저장된 상태와 동일하게 설정)
-      builder.materialMapping(null)
-             .materialAssignment(null);
+      // 5단계: builder는 이미 업데이트된 상태이므로 추가 설정 불필요
+    } else {
+      // MaterialMapping이 없는 경우에도 기본 필드 변경사항을 반영
+      log.debug("MaterialMapping이 없으므로 hasMaterialMapping만 false로 설정");
+      builder.hasMaterialMapping(false);
     }
   }
   
   /**
-   * MaterialMapping 필수 필드 검증
+   * MaterialMapping 필수 필드 검증 (선택적 검증으로 변경)
+   * 자재코드 매핑 필드가 제공된 경우에만 검증 수행
    */
   private void validateMaterialMappingFields(ScopeEmissionUpdateRequest request) {
-    if (request.getUpstreamMaterialCode() == null || request.getUpstreamMaterialCode().trim().isEmpty()) {
-      throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 상위 할당 자재코드는 필수입니다");
+    // 자재코드 매핑 필드가 하나라도 제공된 경우에만 검증 수행
+    boolean hasMaterialCodeFields = (request.getUpstreamMaterialCode() != null && !request.getUpstreamMaterialCode().trim().isEmpty()) ||
+                                   (request.getInternalMaterialCode() != null && !request.getInternalMaterialCode().trim().isEmpty()) ||
+                                   (request.getMaterialName() != null && !request.getMaterialName().trim().isEmpty());
+    
+    if (hasMaterialCodeFields) {
+      // 자재코드 정보를 제공하는 경우, 필수 필드들이 모두 있는지 확인
+      if (request.getUpstreamMaterialCode() == null || request.getUpstreamMaterialCode().trim().isEmpty()) {
+        throw new IllegalArgumentException("자재코드 정보를 업데이트하는 경우 상위 할당 자재코드는 필수입니다");
+      }
+      if (request.getInternalMaterialCode() == null || request.getInternalMaterialCode().trim().isEmpty()) {
+        throw new IllegalArgumentException("자재코드 정보를 업데이트하는 경우 내부 자재코드는 필수입니다");
+      }
+      if (request.getMaterialName() == null || request.getMaterialName().trim().isEmpty()) {
+        throw new IllegalArgumentException("자재코드 정보를 업데이트하는 경우 제품명은 필수입니다");
+      }
     }
-    if (request.getInternalMaterialCode() == null || request.getInternalMaterialCode().trim().isEmpty()) {
-      throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 내부 자재코드는 필수입니다");
-    }
-    if (request.getMaterialName() == null || request.getMaterialName().trim().isEmpty()) {
-      throw new IllegalArgumentException("제품 코드 매핑이 설정된 경우 제품명은 필수입니다");
-    }
+    // 자재코드 매핑 필드가 제공되지 않은 경우는 기존 매핑 유지 (검증 생략)
   }
   
   /**

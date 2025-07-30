@@ -105,14 +105,12 @@ public class ScopeEmissionUpdateRequest {
   // 보고 기간 정보 (Reporting Period)
   // ========================================================================
 
-  @Schema(description = "보고 연도", example = "2024")
-  @NotNull(message = "보고 연도는 필수입니다")
+  @Schema(description = "보고 연도 (선택적 - null이면 업데이트하지 않음)", example = "2024")
   @Min(value = 2020, message = "보고 연도는 2020년 이상이어야 합니다")
   @Max(value = 2030, message = "보고 연도는 2030년 이하이어야 합니다")
   private Integer reportingYear;
 
-  @Schema(description = "보고 월", example = "6")
-  @NotNull(message = "보고 월은 필수입니다")
+  @Schema(description = "보고 월 (선택적 - null이면 업데이트하지 않음)", example = "6")
   @Min(value = 1, message = "보고 월은 1 이상이어야 합니다")
   @Max(value = 12, message = "보고 월은 12 이하이어야 합니다")
   private Integer reportingMonth;
