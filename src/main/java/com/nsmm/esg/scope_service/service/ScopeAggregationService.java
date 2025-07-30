@@ -81,17 +81,17 @@ public class ScopeAggregationService {
         Long dataCount;
 
         if (partnerId == -1L) {
-          // 본사 데이터 조회 (partnerId가 -1인 경우)
+          // 본사 직접 입력 데이터만 조회 (partnerId가 -1인 경우)
           scope1Total = scopeEmissionRepository
-              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(headquartersId, ScopeType.SCOPE1, year, month);
+              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquartersOnly(headquartersId, ScopeType.SCOPE1, year, month);
           scope2Total = scopeEmissionRepository
-              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(headquartersId, ScopeType.SCOPE2, year, month);
+              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquartersOnly(headquartersId, ScopeType.SCOPE2, year, month);
           scope3Total = scopeEmissionRepository
-              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(headquartersId, ScopeType.SCOPE3, year, month);
+              .sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquartersOnly(headquartersId, ScopeType.SCOPE3, year, month);
 
-          // 본사의 데이터 건수 조회 (전체 본사 데이터)
+          // 본사 직접 입력 데이터만의 건수 조회
           dataCount = scopeEmissionRepository
-              .countEmissionsByHeadquartersAndYearAndMonth(headquartersId, year, month);
+              .countEmissionsByHeadquartersOnlyAndYearAndMonth(headquartersId, year, month);
         } else {
           // 협력사 데이터 조회
           scope1Total = scopeEmissionRepository
