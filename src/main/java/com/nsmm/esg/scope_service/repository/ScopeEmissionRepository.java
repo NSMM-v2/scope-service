@@ -19,10 +19,6 @@ import java.util.List;
  * - Scope별/카테고리별 집계 쿼리
  * - 제품별 집계 쿼리
  * - 그룹별 집계 쿼리 (Scope 3 특수 집계용)
- *
- * @author ESG Project Team
- * @version 1.0
- * @since 2024
  */
 @Repository
 public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Long> {
@@ -32,18 +28,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
         
         // 특정 협력사 데이터만 조회
         List<ScopeEmission> findByPartnerIdAndScopeType(Long partnerId, ScopeType scopeType);
-
-        // 본사 기준 ScopeType/연/월별 총 배출량 합계
-        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
-                        "WHERE s.headquartersId = :headquartersId " +
-                        "AND s.scopeType = :scopeType " +
-                        "AND s.reportingYear = :year " +
-                        "AND s.reportingMonth = :month")
-        BigDecimal sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(
-                        @Param("headquartersId") Long headquartersId,
-                        @Param("scopeType") ScopeType scopeType,
-                        @Param("year") Integer year,
-                        @Param("month") Integer month);
 
         // 본사 직접 입력 데이터만 ScopeType/연/월별 총 배출량 합계
         @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
@@ -181,21 +165,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                 @Param("headquartersId") Long headquartersId,
                 @Param("year") Integer year);
 
-        // Scope1 카테고리별 월간 배출량 집계 - 본사 전체 데이터
-        @Query("SELECT s.scope1CategoryNumber, " +
-               "s.reportingMonth, " +
-               "COALESCE(SUM(s.totalEmission), 0), " +
-               "COUNT(s) " +
-               "FROM ScopeEmission s " +
-               "WHERE s.headquartersId = :headquartersId " +
-               "AND s.scopeType = 'SCOPE1' " +
-               "AND s.reportingYear = :year " +
-               "AND s.scope1CategoryNumber IS NOT NULL " +
-               "GROUP BY s.scope1CategoryNumber, s.reportingMonth " +
-               "ORDER BY s.scope1CategoryNumber, s.reportingMonth")
-        List<Object[]> sumScope1EmissionByYearAndMonthAndCategoryForHeadquarters(
-                @Param("headquartersId") Long headquartersId,
-                @Param("year") Integer year);
 
         // Scope1 카테고리별 월간 배출량 집계 - 특정 협력사 데이터만
         @Query("SELECT s.scope1CategoryNumber, " +

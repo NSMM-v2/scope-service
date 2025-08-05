@@ -38,27 +38,20 @@ public class Scope3SpecialAggregationService {
             Long partnerId,
             String treePath) {
 
-        log.info("Scope 3 특수 집계 시작 - 연도: {}, 월: {}, 본사ID: {}, 사용자타입: {}, 협력사ID: {}, TreePath: {}",
-                year, month, headquartersId, userType, partnerId, treePath);
+        long startTime = System.currentTimeMillis();
 
-        // 1. Cat.1 집계
+        // 카테고리별 집계 실행
         Scope3SpecialAggregationResponse.Category1Detail category1Detail = calculateCategory1(
                 year, month, headquartersId, userType, partnerId, treePath);
-
-        // 2. Cat.2 집계
         Scope3SpecialAggregationResponse.Category2Detail category2Detail = calculateCategory2(
                 year, month, headquartersId, userType, partnerId, treePath);
-
-        // 3. Cat.4 집계
         Scope3SpecialAggregationResponse.Category4Detail category4Detail = calculateCategory4(
                 year, month, headquartersId, userType, partnerId, treePath);
-
-        // 4. Cat.5 집계
         Scope3SpecialAggregationResponse.Category5Detail category5Detail = calculateCategory5(
                 year, month, headquartersId, userType, partnerId, treePath);
 
-        // 5. 응답 생성
-        return Scope3SpecialAggregationResponse.builder()
+        // 응답 생성
+        Scope3SpecialAggregationResponse response = Scope3SpecialAggregationResponse.builder()
                 .reportingYear(year)
                 .reportingMonth(month)
                 .userType(userType)
@@ -72,6 +65,16 @@ public class Scope3SpecialAggregationService {
                 .category5TotalEmission(category5Detail.getFinalTotal())
                 .category5Detail(category5Detail)
                 .build();
+                
+        long totalDuration = System.currentTimeMillis() - startTime;
+        BigDecimal totalEmission = category1Detail.getFinalTotal()
+                .add(category2Detail.getFinalTotal())
+                .add(category4Detail.getFinalTotal())
+                .add(category5Detail.getFinalTotal());
+        log.debug("Scope3 특수집계 완료 - {}년 {}월: {} tCO2eq ({}ms)", 
+                year, month, totalEmission, totalDuration);
+                
+        return response;
     }
 
     /**
