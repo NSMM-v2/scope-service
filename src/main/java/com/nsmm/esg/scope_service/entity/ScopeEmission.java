@@ -31,7 +31,12 @@ import java.time.LocalDateTime;
         @Index(name = "idx_partner_scope", columnList = "partner_id, scope_type, reporting_year, reporting_month"),
         @Index(name = "idx_scope_reporting", columnList = "scope_type, reporting_year, reporting_month"),
         @Index(name = "idx_material_mapping", columnList = "material_mapping_id"),
-        @Index(name = "idx_material_assignment", columnList = "material_assignment_id")
+        @Index(name = "idx_material_assignment", columnList = "material_assignment_id"),
+        // 특수 집계 최적화용 복합 인덱스
+        @Index(name = "idx_special_aggregation", columnList = "headquarters_id, scope_type, reporting_year, reporting_month, scope1_category_number, scope2_category_number, scope3_category_number"),
+        @Index(name = "idx_factory_emission", columnList = "headquarters_id, scope_type, factory_enabled, reporting_year, reporting_month"),
+        @Index(name = "idx_partner_aggregation", columnList = "headquarters_id, partner_id, scope_type, reporting_year, reporting_month"),
+        @Index(name = "idx_material_mapping_query", columnList = "headquarters_id, has_material_mapping, scope_type, reporting_year, reporting_month")
 })
 @Getter
 @Builder(toBuilder = true)

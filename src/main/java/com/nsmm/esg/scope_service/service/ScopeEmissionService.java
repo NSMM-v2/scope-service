@@ -13,10 +13,15 @@ import com.nsmm.esg.scope_service.repository.MaterialMappingRepository;
 import com.nsmm.esg.scope_service.repository.MaterialAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -180,6 +185,9 @@ public class ScopeEmissionService {
       log.info("Scope 배출량 데이터 생성 완료: id={}, scopeType={}, totalEmission={}",
           savedEmission.getId(), savedEmission.getScopeType(), savedEmission.getTotalEmission());
 
+      // 6. 캐시 무효화
+      evictEmissionCaches();
+
       return ScopeEmissionResponse.from(savedEmission);
 
     } catch (Exception e) {
@@ -261,6 +269,9 @@ public class ScopeEmissionService {
     ScopeEmission savedEmission = scopeEmissionRepository.save(updatedEmission);
     log.info("Scope 배출량 데이터 수정 완료: id={}", savedEmission.getId());
 
+    // 5. 캐시 무효화
+    evictEmissionCaches();
+
     return ScopeEmissionResponse.from(savedEmission);
   }
 
@@ -327,6 +338,9 @@ public class ScopeEmissionService {
       scopeEmissionRepository.delete(emission);
       log.info("Scope 배출량 데이터 삭제 완료: id={}", id);
       
+      // 5. 캐시 무효화
+      evictEmissionCaches();
+      
     } catch (IllegalArgumentException e) {
       log.error("배출량 데이터 삭제 중 검증 오류: id={}", id, e);
       throw e;
@@ -334,6 +348,164 @@ public class ScopeEmissionService {
       log.error("배출량 데이터 삭제 중 예상치 못한 오류: id={}", id, e);
       throw new RuntimeException("배출량 데이터 삭제 중 오류가 발생했습니다: " + e.getMessage(), e);
     }
+  }
+
+  // ============================================================================
+  // 특수 집계 조회 메서드 (성능 최적화)
+  // ============================================================================
+
+  /**
+   * 특수 집계 배출량 통합 조회 - 본사용 (캐시 적용)
+   * 
+   * 기존의 50여개 개별 쿼리를 1개의 통합 쿼리로 최적화
+   * - SCOPE1_MOBILE: Scope1 이동연소 (카테고리 4,5,6)
+   * - SCOPE1_WASTEWATER: Scope1 폐수처리 (카테고리 8)
+   * - SCOPE1_FACTORY: Scope1 공장설비
+   * - SCOPE2_FACTORY: Scope2 공장설비  
+   * - SCOPE1_TOTAL: Scope1 전체 합계
+   * - SCOPE2_TOTAL: Scope2 전체 합계
+   */
+  @Cacheable(value = "specialAggregationCache", 
+             key = "'headquarters:' + #headquartersId + ':' + #year + ':' + #month")
+  @Transactional(readOnly = true)
+  public Map<String, Object> getSpecialAggregationSummaryForHeadquarters(
+      Long headquartersId, Integer year, Integer month) {
+    
+    log.info("특수 집계 통합 조회 - 본사: headquartersId={}, year={}, month={}", 
+             headquartersId, year, month);
+    
+    List<Object[]> results = scopeEmissionRepository
+        .getSpecialAggregationSummaryForHeadquarters(headquartersId, year, month);
+    
+    Map<String, Object> aggregationMap = new HashMap<>();
+    
+    // 결과를 Map으로 변환
+    for (Object[] result : results) {
+      String type = (String) result[0];
+      BigDecimal totalEmission = (BigDecimal) result[1];
+      Long recordCount = (Long) result[2];
+      
+      Map<String, Object> typeData = new HashMap<>();
+      typeData.put("totalEmission", totalEmission);
+      typeData.put("recordCount", recordCount);
+      
+      aggregationMap.put(type, typeData);
+    }
+    
+    log.info("특수 집계 조회 완료 - 본사: {} 개 항목", aggregationMap.size());
+    return aggregationMap;
+  }
+
+  /**
+   * 특수 집계 배출량 통합 조회 - 협력사용 (캐시 적용)
+   */
+  @Cacheable(value = "specialAggregationCache", 
+             key = "'partner:' + #headquartersId + ':' + #partnerId + ':' + #year + ':' + #month")
+  @Transactional(readOnly = true)
+  public Map<String, Object> getSpecialAggregationSummaryForPartner(
+      Long headquartersId, Long partnerId, Integer year, Integer month) {
+    
+    log.info("특수 집계 통합 조회 - 협력사: headquartersId={}, partnerId={}, year={}, month={}", 
+             headquartersId, partnerId, year, month);
+    
+    List<Object[]> results = scopeEmissionRepository
+        .getSpecialAggregationSummaryForPartner(headquartersId, partnerId, year, month);
+    
+    Map<String, Object> aggregationMap = new HashMap<>();
+    
+    // 결과를 Map으로 변환
+    for (Object[] result : results) {
+      String type = (String) result[0];
+      BigDecimal totalEmission = (BigDecimal) result[1];
+      Long recordCount = (Long) result[2];
+      
+      Map<String, Object> typeData = new HashMap<>();
+      typeData.put("totalEmission", totalEmission);
+      typeData.put("recordCount", recordCount);
+      
+      aggregationMap.put(type, typeData);
+    }
+    
+    log.info("특수 집계 조회 완료 - 협력사: {} 개 항목", aggregationMap.size());
+    return aggregationMap;
+  }
+
+  /**
+   * 카테고리별 배출량 통합 조회 (캐시 적용)
+   * 
+   * Scope1, 2, 3의 모든 카테고리별 배출량을 한 번에 조회
+   */
+  @Cacheable(value = "categoryWiseCache", 
+             key = "'category:' + #headquartersId + ':' + (#partnerId ?: 'HQ') + ':' + #year + ':' + (#month ?: 'ALL')")
+  @Transactional(readOnly = true)
+  public List<Map<String, Object>> getCategoryWiseEmissions(
+      Long headquartersId, Long partnerId, Integer year, Integer month) {
+    
+    log.info("카테고리별 배출량 통합 조회: headquartersId={}, partnerId={}, year={}, month={}", 
+             headquartersId, partnerId, year, month);
+    
+    List<Object[]> results = scopeEmissionRepository
+        .getCategoryWiseEmissions(headquartersId, partnerId, year, month);
+    
+    List<Map<String, Object>> categoryList = results.stream()
+        .map(result -> {
+          Map<String, Object> categoryData = new HashMap<>();
+          categoryData.put("scopeType", result[0]);
+          categoryData.put("categoryNumber", result[1]);
+          categoryData.put("categoryName", result[2]);
+          categoryData.put("reportingMonth", result[3]);
+          categoryData.put("totalEmission", result[4]);
+          categoryData.put("recordCount", result[5]);
+          return categoryData;
+        })
+        .collect(Collectors.toList());
+    
+    log.info("카테고리별 배출량 조회 완료: {} 개 항목", categoryList.size());
+    return categoryList;
+  }
+
+  /**
+   * Scope3 전체 카테고리 배출량 조회 (캐시 적용)
+   */
+  @Cacheable(value = "scope3CategoriesCache", 
+             key = "'scope3:' + #headquartersId + ':' + (#partnerId ?: 'HQ') + ':' + #year + ':' + (#month ?: 'ALL')")
+  @Transactional(readOnly = true)
+  public List<Map<String, Object>> getScope3AllCategoriesEmissions(
+      Long headquartersId, Long partnerId, Integer year, Integer month) {
+    
+    log.info("Scope3 전체 카테고리 배출량 조회: headquartersId={}, partnerId={}, year={}, month={}", 
+             headquartersId, partnerId, year, month);
+    
+    List<Object[]> results = scopeEmissionRepository
+        .getScope3AllCategoriesEmissions(headquartersId, partnerId, year, month);
+    
+    List<Map<String, Object>> scope3List = results.stream()
+        .map(result -> {
+          Map<String, Object> categoryData = new HashMap<>();
+          categoryData.put("categoryNumber", result[0]);
+          categoryData.put("categoryName", result[1]);
+          categoryData.put("reportingMonth", result[2]);
+          categoryData.put("totalEmission", result[3]);
+          categoryData.put("recordCount", result[4]);
+          return categoryData;
+        })
+        .collect(Collectors.toList());
+    
+    log.info("Scope3 카테고리 배출량 조회 완료: {} 개 항목", scope3List.size());
+    return scope3List;
+  }
+
+  // ============================================================================
+  // 캐시 무효화 메서드
+  // ============================================================================
+
+  /**
+   * 배출량 데이터 생성/수정/삭제 시 관련 캐시 무효화
+   */
+  @CacheEvict(value = {"specialAggregationCache", "categoryWiseCache", "scope3CategoriesCache", 
+                       "monthlyEmissionCache", "partnerEmissionCache"}, allEntries = true)
+  public void evictEmissionCaches() {
+    log.info("배출량 관련 모든 캐시 무효화 완료");
   }
 
   // ============================================================================
