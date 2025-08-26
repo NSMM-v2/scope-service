@@ -45,15 +45,6 @@ public class ScopeEmissionController {
 
   private final ScopeEmissionService scopeEmissionService;
 
-  // 헤더 정보 로깅 유틸리티 메서드
-  private void logHeaders(String methodName, String userType, String headquartersId, String partnerId,
-      String treePath) {
-    log.debug("=== {} 요청 헤더 정보 ===", methodName);
-    log.debug("X-USER-TYPE: {}", userType);
-    log.debug("X-HEADQUARTERS-ID: {}", headquartersId);
-    log.debug("X-PARTNER-ID: {}", partnerId);
-    log.debug("X-TREE-PATH: {}", treePath);
-  }
 
   // ========================================================================
   // 생성 API (Creation APIs)
@@ -72,7 +63,6 @@ public class ScopeEmissionController {
     log.info("Scope {} 배출량 생성 요청: categoryNumber={}, inputType={}, hasMaterialMapping={}",
         request.getScopeType(), request.getActiveCategoryNumber(),
         request.getInputType(), request.getHasMaterialMapping());
-    logHeaders("Scope 배출량 생성", userType, headquartersId, partnerId, treePath);
 
     try {
 
@@ -136,7 +126,6 @@ public class ScopeEmissionController {
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
     log.info("Scope {} 배출량 조회 요청: accountNumber={}, userType={}", scopeType, accountNumber, userType);
-    logHeaders("Scope 타입별 배출량 조회", userType, headquartersId, partnerId, treePath);
 
     try {
       List<ScopeEmissionResponse> response = scopeEmissionService.getEmissionsByScope(
@@ -179,7 +168,6 @@ public class ScopeEmissionController {
 
     log.info("Scope 배출량 업데이트 요청: id={}, userType={}, inputType={}, hasMaterialMapping={}",
         id, userType, request.getInputType(), request.getHasMaterialMapping());
-    logHeaders("Scope 배출량 업데이트", userType, headquartersId, partnerId, treePath);
 
     try {
       // 자재 코드 매핑 로깅
@@ -229,7 +217,6 @@ public class ScopeEmissionController {
       @RequestHeader(value = "X-TREE-PATH", required = false) String treePath) {
 
     log.info("Scope 배출량 삭제 요청: id={}, userType={}", id, userType);
-    logHeaders("Scope 배출량 삭제", userType, headquartersId, partnerId, treePath);
 
   try {
       scopeEmissionService.deleteScopeEmission(id, userType, headquartersId, partnerId, treePath);

@@ -19,10 +19,6 @@ import java.util.List;
  * - Scope별/카테고리별 집계 쿼리
  * - 제품별 집계 쿼리
  * - 그룹별 집계 쿼리 (Scope 3 특수 집계용)
- *
- * @author ESG Project Team
- * @version 1.0
- * @since 2024
  */
 @Repository
 public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Long> {
@@ -32,18 +28,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
         
         // 특정 협력사 데이터만 조회
         List<ScopeEmission> findByPartnerIdAndScopeType(Long partnerId, ScopeType scopeType);
-
-        // 본사 기준 ScopeType/연/월별 총 배출량 합계
-        @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
-                        "WHERE s.headquartersId = :headquartersId " +
-                        "AND s.scopeType = :scopeType " +
-                        "AND s.reportingYear = :year " +
-                        "AND s.reportingMonth = :month")
-        BigDecimal sumTotalEmissionByScopeTypeAndYearAndMonthForHeadquarters(
-                        @Param("headquartersId") Long headquartersId,
-                        @Param("scopeType") ScopeType scopeType,
-                        @Param("year") Integer year,
-                        @Param("month") Integer month);
 
         // 본사 직접 입력 데이터만 ScopeType/연/월별 총 배출량 합계
         @Query("SELECT COALESCE(SUM(s.totalEmission), 0) FROM ScopeEmission s " +
@@ -181,21 +165,6 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                 @Param("headquartersId") Long headquartersId,
                 @Param("year") Integer year);
 
-        // Scope1 카테고리별 월간 배출량 집계 - 본사 전체 데이터
-        @Query("SELECT s.scope1CategoryNumber, " +
-               "s.reportingMonth, " +
-               "COALESCE(SUM(s.totalEmission), 0), " +
-               "COUNT(s) " +
-               "FROM ScopeEmission s " +
-               "WHERE s.headquartersId = :headquartersId " +
-               "AND s.scopeType = 'SCOPE1' " +
-               "AND s.reportingYear = :year " +
-               "AND s.scope1CategoryNumber IS NOT NULL " +
-               "GROUP BY s.scope1CategoryNumber, s.reportingMonth " +
-               "ORDER BY s.scope1CategoryNumber, s.reportingMonth")
-        List<Object[]> sumScope1EmissionByYearAndMonthAndCategoryForHeadquarters(
-                @Param("headquartersId") Long headquartersId,
-                @Param("year") Integer year);
 
         // Scope1 카테고리별 월간 배출량 집계 - 특정 협력사 데이터만
         @Query("SELECT s.scope1CategoryNumber, " +
@@ -618,6 +587,198 @@ public interface ScopeEmissionRepository extends JpaRepository<ScopeEmission, Lo
                 @Param("year") Integer year,
                 @Param("month") Integer month);
 
+        // ========================================================================
+        // 통합 특수 집계 쿼리 (성능 최적화용)
+        // ========================================================================
 
+        // 모든 특수 집계를 한 번에 조회하는 통합 쿼리 - 본사용
+        @Query("SELECT " +
+               "'SCOPE1_MOBILE' as aggregationType, " +
+               "COALESCE(SUM(CASE WHEN s.scope1CategoryNumber IN (4, 5, 6) THEN s.totalEmission ELSE 0 END), 0) as totalEmission, " +
+               "COUNT(CASE WHEN s.scope1CategoryNumber IN (4, 5, 6) THEN 1 ELSE NULL END) as recordCount " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId IS NULL " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE1_WASTEWATER', " +
+               "COALESCE(SUM(CASE WHEN s.scope1CategoryNumber = 8 THEN s.totalEmission ELSE 0 END), 0), " +
+               "COUNT(CASE WHEN s.scope1CategoryNumber = 8 THEN 1 ELSE NULL END) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId IS NULL " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE1_FACTORY', " +
+               "COALESCE(SUM(CASE WHEN s.factoryEnabled = true THEN s.totalEmission ELSE 0 END), 0), " +
+               "COUNT(CASE WHEN s.factoryEnabled = true THEN 1 ELSE NULL END) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId IS NULL " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE2_FACTORY', " +
+               "COALESCE(SUM(CASE WHEN s.factoryEnabled = true THEN s.totalEmission ELSE 0 END), 0), " +
+               "COUNT(CASE WHEN s.factoryEnabled = true THEN 1 ELSE NULL END) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId IS NULL " +
+               "AND s.scopeType = 'SCOPE2' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE1_TOTAL', " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId IS NULL " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE2_TOTAL', " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId IS NULL " +
+               "AND s.scopeType = 'SCOPE2' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month")
+        List<Object[]> getSpecialAggregationSummaryForHeadquarters(
+                @Param("headquartersId") Long headquartersId,
+                @Param("year") Integer year,
+                @Param("month") Integer month);
+
+        // 모든 특수 집계를 한 번에 조회하는 통합 쿼리 - 협력사용
+        @Query("SELECT " +
+               "'SCOPE1_MOBILE' as aggregationType, " +
+               "COALESCE(SUM(CASE WHEN s.scope1CategoryNumber IN (4, 5, 6) THEN s.totalEmission ELSE 0 END), 0) as totalEmission, " +
+               "COUNT(CASE WHEN s.scope1CategoryNumber IN (4, 5, 6) THEN 1 ELSE NULL END) as recordCount " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId = :partnerId " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE1_WASTEWATER', " +
+               "COALESCE(SUM(CASE WHEN s.scope1CategoryNumber = 8 THEN s.totalEmission ELSE 0 END), 0), " +
+               "COUNT(CASE WHEN s.scope1CategoryNumber = 8 THEN 1 ELSE NULL END) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId = :partnerId " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE1_FACTORY', " +
+               "COALESCE(SUM(CASE WHEN s.factoryEnabled = true THEN s.totalEmission ELSE 0 END), 0), " +
+               "COUNT(CASE WHEN s.factoryEnabled = true THEN 1 ELSE NULL END) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId = :partnerId " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE2_FACTORY', " +
+               "COALESCE(SUM(CASE WHEN s.factoryEnabled = true THEN s.totalEmission ELSE 0 END), 0), " +
+               "COUNT(CASE WHEN s.factoryEnabled = true THEN 1 ELSE NULL END) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId = :partnerId " +
+               "AND s.scopeType = 'SCOPE2' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE1_TOTAL', " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId = :partnerId " +
+               "AND s.scopeType = 'SCOPE1' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month " +
+               "UNION ALL " +
+               "SELECT " +
+               "'SCOPE2_TOTAL', " +
+               "COALESCE(SUM(s.totalEmission), 0), " +
+               "COUNT(s) " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND s.partnerId = :partnerId " +
+               "AND s.scopeType = 'SCOPE2' " +
+               "AND s.reportingYear = :year " +
+               "AND s.reportingMonth = :month")
+        List<Object[]> getSpecialAggregationSummaryForPartner(
+                @Param("headquartersId") Long headquartersId,
+                @Param("partnerId") Long partnerId,
+                @Param("year") Integer year,
+                @Param("month") Integer month);
+
+        // 모든 카테고리별 집계를 통합 조회 - Scope1,2,3 전체
+        @Query("SELECT " +
+               "s.scopeType, " +
+               "COALESCE(s.scope1CategoryNumber, s.scope2CategoryNumber, s.scope3CategoryNumber) as categoryNumber, " +
+               "COALESCE(s.scope1CategoryName, s.scope2CategoryName, s.scope3CategoryName) as categoryName, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0) as totalEmission, " +
+               "COUNT(s) as recordCount " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND (:partnerId IS NULL AND s.partnerId IS NULL OR s.partnerId = :partnerId) " +
+               "AND s.reportingYear = :year " +
+               "AND (:month IS NULL OR s.reportingMonth = :month) " +
+               "AND (s.scope1CategoryNumber IS NOT NULL OR s.scope2CategoryNumber IS NOT NULL OR s.scope3CategoryNumber IS NOT NULL) " +
+               "GROUP BY s.scopeType, " +
+               "COALESCE(s.scope1CategoryNumber, s.scope2CategoryNumber, s.scope3CategoryNumber), " +
+               "COALESCE(s.scope1CategoryName, s.scope2CategoryName, s.scope3CategoryName), " +
+               "s.reportingMonth " +
+               "ORDER BY s.scopeType, categoryNumber, s.reportingMonth")
+        List<Object[]> getCategoryWiseEmissions(
+                @Param("headquartersId") Long headquartersId,
+                @Param("partnerId") Long partnerId,
+                @Param("year") Integer year,
+                @Param("month") Integer month);
+
+        // Scope3 특정 카테고리들 통합 조회 (1~15번 모든 카테고리)
+        @Query("SELECT " +
+               "s.scope3CategoryNumber, " +
+               "s.scope3CategoryName, " +
+               "s.reportingMonth, " +
+               "COALESCE(SUM(s.totalEmission), 0) as totalEmission, " +
+               "COUNT(s) as recordCount " +
+               "FROM ScopeEmission s " +
+               "WHERE s.headquartersId = :headquartersId " +
+               "AND (:partnerId IS NULL AND s.partnerId IS NULL OR s.partnerId = :partnerId) " +
+               "AND s.scopeType = 'SCOPE3' " +
+               "AND s.reportingYear = :year " +
+               "AND (:month IS NULL OR s.reportingMonth = :month) " +
+               "AND s.scope3CategoryNumber BETWEEN 1 AND 15 " +
+               "GROUP BY s.scope3CategoryNumber, s.scope3CategoryName, s.reportingMonth " +
+               "ORDER BY s.scope3CategoryNumber, s.reportingMonth")
+        List<Object[]> getScope3AllCategoriesEmissions(
+                @Param("headquartersId") Long headquartersId,
+                @Param("partnerId") Long partnerId,
+                @Param("year") Integer year,
+                @Param("month") Integer month);
 
 }

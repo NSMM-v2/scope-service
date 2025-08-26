@@ -63,7 +63,8 @@ public class ScopeAggregationService {
       Long requestPartnerId,
       String treePath) {
 
-    log.info("협력사별 월별 집계 시작 - 대상협력사ID: {}, 본사ID: {}, 사용자타입: {}, 요청자협력사ID: {}, 연도: {}",
+    long startTime = System.currentTimeMillis();
+    log.info("[PERF] getPartnerMonthlyEmissionSummary 시작 - 대상협력사ID: {}, 본사ID: {}, 사용자타입: {}, 요청자협력사ID: {}, 연도: {}",
         partnerId, headquartersId, userType, requestPartnerId, year);
 
     try {
@@ -121,7 +122,10 @@ public class ScopeAggregationService {
         monthlyData.add(monthlyItem);
       }
 
-      log.info("협력사별 월별 집계 완료 - 대상협력사ID: {}, 연도: {}, 월별 데이터 수: {}", partnerId, year, monthlyData.size());
+      long endTime = System.currentTimeMillis();
+      long duration = endTime - startTime;
+      log.info("[PERF] getPartnerMonthlyEmissionSummary 완료 - 소요시간: {}ms, 대상협력사ID: {}, 연도: {}, 월별 데이터 수: {}", 
+          duration, partnerId, year, monthlyData.size());
       return monthlyData;
 
     } catch (Exception e) {
@@ -182,7 +186,8 @@ public class ScopeAggregationService {
       String treePath,
       Integer level) {
 
-    log.info("카테고리별 연간 집계 시작 - Scope: {}, 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+    long startTime = System.currentTimeMillis();
+    log.info("[PERF] getCategoryYearlyEmissions 시작 - Scope: {}, 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
         scopeType, year, headquartersId, userType, partnerId);
 
     try {
@@ -249,7 +254,10 @@ public class ScopeAggregationService {
           })
           .collect(Collectors.toList());
 
-      log.info("카테고리별 연간 집계 완료 - Scope: {}, 카테고리 수: {}", scopeType, categoryEmissions.size());
+      long endTime = System.currentTimeMillis();
+      long duration = endTime - startTime;
+      log.info("[PERF] getCategoryYearlyEmissions 완료 - 소요시간: {}ms, Scope: {}, 카테고리 수: {}", 
+          duration, scopeType, categoryEmissions.size());
       return categoryEmissions;
 
     } catch (Exception e) {
@@ -280,7 +288,8 @@ public class ScopeAggregationService {
       String treePath,
       Integer level) {
 
-    log.info("카테고리별 월간 집계 시작 - Scope: {}, 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+    long startTime = System.currentTimeMillis();
+    log.info("[PERF] getCategoryMonthlyEmissions 시작 - Scope: {}, 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
         scopeType, year, headquartersId, userType, partnerId);
 
     try {
@@ -362,7 +371,10 @@ public class ScopeAggregationService {
           })
           .collect(Collectors.toList());
 
-      log.info("카테고리별 월간 집계 완료 - Scope: {}, 데이터 수: {}", scopeType, categoryEmissions.size());
+      long endTime = System.currentTimeMillis();
+      long duration = endTime - startTime;
+      log.info("[PERF] getCategoryMonthlyEmissions 완료 - 소요시간: {}ms, Scope: {}, 데이터 수: {}", 
+          duration, scopeType, categoryEmissions.size());
       return categoryEmissions;
 
     } catch (Exception e) {
@@ -416,7 +428,8 @@ public class ScopeAggregationService {
       String treePath,
       Integer level) {
 
-    log.info("카테고리별 특정 월 집계 시작 - Scope: {}, 연도: {}, 월: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+    long startTime = System.currentTimeMillis();
+    log.info("[PERF] getCategorySpecificMonthEmissions 시작 - Scope: {}, 연도: {}, 월: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
         scopeType, year, month, headquartersId, userType, partnerId);
 
     // 현재는 Scope3만 지원
@@ -467,8 +480,10 @@ public class ScopeAggregationService {
           })
           .collect(Collectors.toList());
 
-      log.info("카테고리별 특정 월 집계 완료 - Scope: {}, 연도: {}, 월: {}, 데이터 수: {}", 
-          scopeType, year, month, categoryEmissions.size());
+      long endTime = System.currentTimeMillis();
+      long duration = endTime - startTime;
+      log.info("[PERF] getCategorySpecificMonthEmissions 완료 - 소요시간: {}ms, Scope: {}, 연도: {}, 월: {}, 데이터 수: {}", 
+          duration, scopeType, year, month, categoryEmissions.size());
       return categoryEmissions;
 
     } catch (Exception e) {
@@ -496,7 +511,8 @@ public class ScopeAggregationService {
       String treePath,
       Integer level) {
 
-    log.info("Scope3 월별 통합 집계 시작 - 연도: {}, 월: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+    long startTime = System.currentTimeMillis();
+    log.info("[PERF] getScope3CombinedMonthlyEmission 시작 - 연도: {}, 월: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
         year, month, headquartersId, userType, partnerId);
 
     try {
@@ -515,9 +531,10 @@ public class ScopeAggregationService {
       Scope3CombinedEmissionResponse response = Scope3CombinedEmissionResponse.createMonthlyResponse(
           year, month, userType, organizationId, specialAggregation, monthlyCategories);
 
-      log.info("Scope3 월별 통합 집계 완료 - 연도: {}, 월: {}, 특수집계: {}, 일반집계: {}, 총합: {}",
-          year, month, response.getSpecialAggregationTotal(),
-          response.getRegularCategoryTotal(), response.getTotalScope3Emission());
+      long endTime = System.currentTimeMillis();
+      long duration = endTime - startTime;
+      log.info("Scope3 월별 통합집계 완료 - {}년 {}월: {} tCO2eq ({}ms)",
+          year, month, response.getTotalScope3Emission(), duration);
 
       return response;
 
@@ -540,7 +557,8 @@ public class ScopeAggregationService {
       String treePath,
       Integer level) {
 
-    log.info("Scope3 연별 통합 집계 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+    long startTime = System.currentTimeMillis();
+    log.info("[PERF] getScope3CombinedYearlyEmission 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
         year, headquartersId, userType, partnerId);
 
     try {
@@ -559,9 +577,10 @@ public class ScopeAggregationService {
       Scope3CombinedEmissionResponse response = Scope3CombinedEmissionResponse.createYearlyResponse(
           year, userType, organizationId, specialAggregation, yearlyCategories);
 
-      log.info("Scope3 연별 통합 집계 완료 - 연도: {}, 특수집계: {}, 일반집계: {}, 총합: {}",
-          year, response.getSpecialAggregationTotal(),
-          response.getRegularCategoryTotal(), response.getTotalScope3Emission());
+      long endTime = System.currentTimeMillis();
+      long duration = endTime - startTime;
+      log.info("Scope3 연별 통합집계 완료 - {}년: {} tCO2eq ({}ms)",
+          year, response.getTotalScope3Emission(), duration);
 
       return response;
 
@@ -572,7 +591,8 @@ public class ScopeAggregationService {
   }
 
   /**
-   * 연별 특수집계 배출량 조회 (1~12월 모든 월 합산)
+   * 연별 특수집계 배출량 조회 (최적화된 통합 쿼리 방식)
+   * 기존의 12번 반복 호출을 통합 쿼리로 최적화
    */
   private Scope3SpecialAggregationResponse getYearlySpecialAggregation(
       Integer year,
@@ -581,58 +601,33 @@ public class ScopeAggregationService {
       Long partnerId,
       String treePath) {
 
-    log.info("연별 특수집계 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
+    long startTime = System.currentTimeMillis();
+    log.info("[PERF] getYearlySpecialAggregation 최적화 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 파트너ID: {}",
         year, headquartersId, userType, partnerId);
 
-    BigDecimal totalCat1 = BigDecimal.ZERO;
-    BigDecimal totalCat2 = BigDecimal.ZERO;
-    BigDecimal totalCat4 = BigDecimal.ZERO;
-    BigDecimal totalCat5 = BigDecimal.ZERO;
+    try {
+      // Scope3SpecialAggregationService에 연간 집계 메서드 호출 (새로 추가될 메서드)
+      Scope3SpecialAggregationResponse yearlySpecialAggregation = 
+          scope3SpecialAggregationService.getYearlySpecialAggregation(
+              year, headquartersId, userType, partnerId, treePath);
 
-    // 1월부터 12월까지 각 월의 특수집계 조회하여 합산
-    for (int month = 1; month <= 12; month++) {
-      try {
-        Scope3SpecialAggregationResponse monthlyAggregation = scope3SpecialAggregationService
-            .getSpecialAggregation(year, month, headquartersId, userType, partnerId, treePath);
+      long endTime = System.currentTimeMillis();
+      long duration = endTime - startTime;
+      
+      BigDecimal totalEmission = yearlySpecialAggregation.getCategory1TotalEmission()
+          .add(yearlySpecialAggregation.getCategory2TotalEmission())
+          .add(yearlySpecialAggregation.getCategory4TotalEmission())
+          .add(yearlySpecialAggregation.getCategory5TotalEmission());
+      
+      log.info("Scope3 연별 특수집계 최적화 완료 - {}년: {} tCO2eq ({}ms)", 
+          year, totalEmission, duration);
 
-        totalCat1 = totalCat1.add(monthlyAggregation.getCategory1TotalEmission());
-        totalCat2 = totalCat2.add(monthlyAggregation.getCategory2TotalEmission());
-        totalCat4 = totalCat4.add(monthlyAggregation.getCategory4TotalEmission());
-        totalCat5 = totalCat5.add(monthlyAggregation.getCategory5TotalEmission());
+      return yearlySpecialAggregation;
 
-        log.debug("{}월 특수집계 - Cat1: {}, Cat2: {}, Cat4: {}, Cat5: {}",
-            month, monthlyAggregation.getCategory1TotalEmission(),
-            monthlyAggregation.getCategory2TotalEmission(),
-            monthlyAggregation.getCategory4TotalEmission(),
-            monthlyAggregation.getCategory5TotalEmission());
-
-      } catch (Exception e) {
-        log.warn("{}월 특수집계 조회 중 오류 발생: {}", month, e.getMessage());
-        // 해당 월 데이터 없으면 0으로 처리하고 계속 진행
-      }
+    } catch (Exception e) {
+      log.error("연별 특수집계 조회 중 오류 발생 - 연도: {}: {}", year, e.getMessage(), e);
+      throw new RuntimeException("연별 특수집계 조회 중 오류가 발생했습니다", e);
     }
-
-    // 조직 ID 결정
-    Long organizationId = "HEADQUARTERS".equals(userType) ? headquartersId : partnerId;
-
-    // 연별 특수집계 응답 생성 (12월로 설정하여 연별임을 표시)
-    Scope3SpecialAggregationResponse yearlySpecialAggregation = Scope3SpecialAggregationResponse.builder()
-        .reportingYear(year)
-        .reportingMonth(12) // 연별 조회임을 나타내는 더미 값
-        .userType(userType)
-        .organizationId(organizationId)
-        .category1TotalEmission(totalCat1)
-        .category2TotalEmission(totalCat2)
-        .category4TotalEmission(totalCat4)
-        .category5TotalEmission(totalCat5)
-        // Detail 정보는 null로 설정 (연별 합산에서는 세부사항 제공하지 않음)
-        .build();
-
-    log.info("연별 특수집계 완료 - 연도: {}, Cat1: {}, Cat2: {}, Cat4: {}, Cat5: {}, 총합: {}",
-        year, totalCat1, totalCat2, totalCat4, totalCat5,
-        totalCat1.add(totalCat2).add(totalCat4).add(totalCat5));
-
-    return yearlySpecialAggregation;
   }
 
   // ========================================================================
@@ -751,7 +746,8 @@ public class ScopeAggregationService {
       Integer userLevel,
       String treePath) {
 
-    log.info("맵핑된 자재코드 월별 총합 조회 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 레벨: {}",
+    long startTime = System.currentTimeMillis();
+    log.info("[PERF] getMappedMaterialMonthlyTotals 시작 - 연도: {}, 본사ID: {}, 사용자타입: {}, 협력사ID: {}, 레벨: {}",
         year, headquartersId, userType, partnerId, userLevel);
 
     try {
@@ -855,6 +851,11 @@ public class ScopeAggregationService {
             partnerId, year, monthlyTotals, materialDetails);
       }
 
+      long endTime = System.currentTimeMillis();
+      long duration = endTime - startTime;
+      log.info("[PERF] getMappedMaterialMonthlyTotals 완료 - 소요시간: {}ms, 연도: {}, 월별 데이터 수: {}, 자재별 상세 수: {}", 
+          duration, year, monthlyTotals.size(), materialDetails.size());
+      
       return response;
 
     } catch (Exception e) {
