@@ -515,7 +515,7 @@ graph TB
 sequenceDiagram
     participant 협력사 as 협력사<br/>(Partner)
     participant API as Material API<br/>(MaterialAssignmentController)
-    paragraph 매핑서비스 as MaterialMapping<br/>Service
+    participant 매핑서비스 as MaterialMapping<br/>Service
     participant DB as MySQL DB<br/>(material_mapping)
     participant 배출량 as ScopeEmission<br/>(연결된 배출량 데이터)
 
